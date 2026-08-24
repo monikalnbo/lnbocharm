@@ -1,0 +1,27 @@
+{
+  "$comment": "CodeForge 错误码单一来源。pylib 与 JS 启动时加载校验，禁止两端硬编码文案。",
+  "version": 1,
+  "codes": {
+    "CF0001": { "severity": "error", "category": "plugin", "message": "插件加载失败", "hint": "查看日志中的 traceback，修复或移除该插件文件" },
+    "CF1001": { "severity": "error", "category": "file", "message": "文件不存在", "hint": "检查路径是否正确，或刷新文件树" },
+    "CF1002": { "severity": "error", "category": "file", "message": "非法路径", "hint": "路径包含越权字符或越出工作区范围" },
+    "CF1003": { "severity": "error", "category": "file", "message": "文件写入失败", "hint": "检查磁盘空间与文件只读属性" },
+    "CF2001": { "severity": "error", "category": "build", "message": "编译失败", "hint": "点击输出中的文件名行号可直接跳转定位" },
+    "CF2002": { "severity": "error", "category": "build", "message": "构建超时", "hint": "可在设置中调大超时时间，或检查是否存在死循环代码" },
+    "CF2003": { "severity": "error", "category": "build", "message": "未找到工具链", "hint": "未找到 {toolchain}。安装命令：{install}" },
+    "CF2004": { "severity": "error", "category": "build", "message": "构建队列已满", "hint": "请等待当前构建完成后再试" },
+    "CF3001": { "severity": "warning", "category": "lint", "message": "缩进混用空格与 Tab", "hint": "建议统一为空格；可在设置中开启保存时自动转换" },
+    "CF3002": { "severity": "error", "category": "lint", "message": "缩进层级错误", "hint": "此行的缩进量不符合语法要求的层级关系" },
+    "CF3003": { "severity": "info", "category": "lint", "message": "疑似拼写错误", "hint": "检查单词拼写；如为专有名词可加入自定义词典" },
+    "CF3004": { "severity": "info", "category": "lint", "message": "行超长", "hint": "超过设置的最大行长，建议拆分表达式或换行" },
+    "CF4001": { "severity": "warning", "category": "debug", "message": "断点未绑定", "hint": "目标程序缺少调试符号：C/C++ 编译请加 -g，Rust 用 debug profile" },
+    "CF4002": { "severity": "error", "category": "debug", "message": "调试适配器不可用", "hint": "该语言的调试后端未安装，请在设置中配置适配器路径" },
+    "CF5001": { "severity": "warning", "category": "agent", "message": "本地 Agent 未连接", "hint": "本机构建需要桌面端处于运行状态并已打开项目" },
+    "CF5002": { "severity": "error", "category": "agent", "message": "协议版本不匹配", "hint": "请将桌面端({client_ver})与服务器({server_ver})升级到同一版本" },
+    "CF5003": { "severity": "error", "category": "agent", "message": "worker 频繁崩溃", "hint": "引擎进程连续异常退出，请导出日志诊断包反馈" },
+    "CF6001": { "severity": "error", "category": "terminal", "message": "终端会话创建失败", "hint": "系统 PTY 资源不足或被安全软件拦截，重启应用后重试" },
+    "CF7001": { "severity": "warning", "category": "proxy", "message": "加速器隧道未连接", "hint": "先在加速器面板选择服务器并连接" },
+    "CF7002": { "severity": "warning", "category": "proxy", "message": "目标地址被拒绝", "hint": "该目标不在允许访问列表中，可在设置中调整黑白名单" },
+    "CF7003": { "severity": "error", "category": "proxy", "message": "中继鉴权失败", "hint": "检查服务器地址与 token 是否正确" }
+  }
+}
