@@ -11,18 +11,20 @@ const { getPyWorker } = require("./services/pyworker");
 const { Workspace } = require("./services/workspace");
 const { BuildExecutor } = require("./services/executor");
 const { TerminalService } = require("./services/terminal");
+const { LspManager } = require("./services/lsp");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
 
 const app = express();
 app.use(express.json({ limit: "4mb" }));
-app.use(express.static(path.join(__dirname, "..", "frontend", "dist")));
+app.use(express.static(path.join(__dirname, "..", "..", "frontend", "dist")));
 
 const worker = getPyWorker();
 const workspace = new Workspace(WORKSPACE);
 const executor = new BuildExecutor();
 const terminals = new TerminalService();
+const lsp = new LspManager();
 
 // ---------- REST ----------
 app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -107,6 +109,12 @@ wss.on("connection", (socket, req) => {
   let handshaken = false;
   const kick = setTimeout(() => socket.close(4000, "handshake timeout"), 10_000);
 
+  // LSP 服务器通知（publishDiagnostics 等）转发到该连接
+  lsp.onNotification(({ language, method, params }) => {
+    if (socket.readyState === socket.OPEN)
+      socket.send(JSON.stringify(ok("lsp", "lsp.notification", { language, method, params })));
+  });
+
   socket.on("message", (raw, isBinary) => {
     // 二进制帧：终端/调试通道后续接入
     if (isBinary) return;
@@ -189,6 +197,28 @@ wss.on("connection", (socket, req) => {
       case "term.kill": {
         socket.send(JSON.stringify(ok(msg.id, "term.killed",
           { killed: terminals.kill(msg.payload?.sessionId) })));
+        break;
+      }
+      case "lsp.start": {
+        lsp.ensureRunning(msg.payload?.language, msg.payload?.root)
+          .then((r) => socket.send(JSON.stringify(ok(msg.id, "lsp.started", r))))
+          .catch((e) => {
+            const err = e.cfError || makeError("CF4002");
+            socket.send(JSON.stringify(fail(msg.id, "lsp.start", err.code, err.details || {})));
+          });
+        break;
+      }
+      case "lsp.request": {
+        lsp.request(msg.payload?.language, msg.payload?.method, msg.payload?.params)
+          .then((result) => socket.send(JSON.stringify(ok(msg.id, "lsp.result", { result }))))
+          .catch((e) => {
+            const err = e.cfError || makeError("CF0001", {}, { message: e.message });
+            socket.send(JSON.stringify(fail(msg.id, "lsp.result", err.code, err.details || {})));
+          });
+        break;
+      }
+      case "lsp.notify": {
+        lsp.notify(msg.payload?.language, msg.payload?.method, msg.payload?.params);
         break;
       }
       default:

@@ -1,6 +1,7 @@
 /// 集成终端服务：每个会话一个 PTY。
 /// - 会话上限（防资源耗尽）、输出环形缓冲、空闲自动回收（内存任务 #34）
 const os = require("os");
+const fs = require("fs");
 const path = require("path");
 
 const MAX_SESSIONS = 8;
@@ -28,10 +29,12 @@ class TerminalService {
     const id = "t" + this._nextId++;
     const shellBin = shell || process.env.SHELL ||
                      (os.platform() === "win32" ? "powershell.exe" : "bash");
+    let cwd = process.env.CODEFORGE_WS || path.join(process.cwd(), "..", "workspace-demo");
+    try { fs.accessSync(cwd); } catch { cwd = os.homedir(); }   // 目录不存在时回退，避免 PTY 静默失败
     const ptyProc = this.pty.spawn(shellBin, [], {
       name: "xterm-256color",
       cols, rows,
-      cwd: process.env.CODEFORGE_WS || path.join(process.cwd(), "..", "workspace-demo"),
+      cwd,
       env: { ...process.env, TERM: "xterm-256color" },
     });
 
