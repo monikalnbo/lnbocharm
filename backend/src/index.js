@@ -3,6 +3,7 @@
 /// WS:   /ws 统一信封协议（hello 握手 → build/term/debug 通道，逐步接入）
 const express = require("express");
 const http = require("http");
+const fs = require("fs");
 const path = require("path");
 const { WebSocketServer } = require("ws");
 
@@ -18,6 +19,7 @@ const E2E_REQUIRED = process.env.CODEFORGE_E2E === "1";
 const WS_TOKEN = process.env.CODEFORGE_TOKEN || "";
 const logger = require("./services/logger");
 const { search, replaceAll } = require("./services/search");
+const toolchainStore = require("./services/toolchains");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
@@ -88,6 +90,20 @@ app.post("/api/files/rename", async (req, res) => {
 app.post("/api/files/delete", async (req, res) => {
   try { res.json(ok("rest", "files.delete", await workspace.remove(req.body.path))); }
   catch (e) { const err = e.cfError || makeError("CF1002"); res.status(400).json(fail("rest", "files.delete", err.code)); }
+});
+
+// 工具链分发（任务 #38/#41）
+const TOOLCHAIN_DIR = process.env.CODEFORGE_TOOLCHAINS || path.join(__dirname, "..", "..", "toolchains");
+app.get("/api/toolchains", (_req, res) => {
+  res.json(ok("rest", "toolchains.list", toolchainStore.list(TOOLCHAIN_DIR)));
+});
+app.get("/api/toolchains/:id/download", async (req, res) => {
+  const entry = toolchainStore.findById(TOOLCHAIN_DIR, req.params.id);
+  const abs = entry && toolchainStore.filePathOf(TOOLCHAIN_DIR, entry);
+  if (!abs) return res.status(404).json(fail("rest", "toolchains.download", "CF2003",
+    { toolchain: req.params.id }));
+  res.setHeader("Content-Type", "application/octet-stream");
+  fs.createReadStream(abs).pipe(res);
 });
 
 // 全局搜索与替换（任务 #27）
