@@ -35,25 +35,43 @@ test("E2E：无公钥的 hello 被拒(4005)；带公钥完成协商后加密 pin
   await new Promise((r) => setTimeout(r, 1200));
 
   try {
-    // 1. 不带公钥 → 拒绝
+    // 1. 明文 hello → 回执要求 E2E 并下发服务器公钥
     const wsBad = new WebSocket(url + "/ws");
+    let badPub = null;
     wsBad.on("open", () => wsBad.send(JSON.stringify(
       { v: 1, id: "h0", type: "hello", payload: { client: "desktop" } })));
-    assert.strictEqual(await waitClose(wsBad), 4005);
+    await new Promise((res) => wsBad.once("message", (d) => {
+      badPub = JSON.parse(d.toString())?.payload?.e2e?.pub; res(); }));
+    assert.ok(badPub, "阶段一应下发服务器公钥");
+    // 不发 secure 帧 → 握手超时被踢
+    assert.strictEqual(await waitClose(wsBad), 4000);
+    wsBad.terminate();
 
-    // 2. 带公钥 → 协商 → 加密 ping
+    // 2. 两阶段协商：明文 hello → secure 帧 → 加密回执就绪
     const ws = new WebSocket(url + "/ws");
     await waitOpen(ws);
     const clientKeys = e2e.genEcdh();
-    ws.send(JSON.stringify({ v: 1, id: "h1", type: "hello",
-      payload: { client: "desktop", pub: clientKeys.publicBase64 } }));
 
-    const hello = await new Promise((res) =>
-      ws.once("message", (d) => res(JSON.parse(d.toString()))));
-    assert.ok(hello.ok && hello.payload?.e2e?.pub);
+    const stage1 = await new Promise((res) => {
+      ws.on("message", function h(d) {
+        const m = JSON.parse(d.toString());
+        if (m.id === "h1") { ws.off("message", h); res(m); }
+      });
+      ws.send(JSON.stringify({ v: 1, id: "h1", type: "hello",
+        payload: { client: "desktop" } }));
+    });
+    assert.strictEqual(stage1.payload.e2e.required, true);
+
+    // 阶段二：secure 帧（明文，仅含客户端公钥）
+    ws.send(JSON.stringify({ v: 1, id: "s1", type: "secure",
+      payload: { pub: clientKeys.publicBase64 } }));
+
+    const readyRaw = await new Promise((res) =>
+      ws.once("message", (d) => res(d.toString())));
+    assert.ok(!readyRaw.includes('"established"'));   // 就绪回执是密文
 
     // 双方独立推导出同一会话密钥
-    const key = e2e.deriveKey(clientKeys.privateKey, hello.payload.e2e.pub);
+    const key = e2e.deriveKey(clientKeys.privateKey, stage1.payload.e2e.pub);
 
     // 加密 ping → 解密 pong
     ws.send(JSON.stringify(e2e.sealEnvelope(key,
@@ -61,8 +79,10 @@ test("E2E：无公钥的 hello 被拒(4005)；带公钥完成协商后加密 pin
     const pongRaw = await new Promise((res) => ws.once("message", res));
     const pong = e2e.openEnvelope(key, JSON.parse(pongRaw.toString()));
     assert.strictEqual(pong.type, "pong");
-    // 密文里不应出现明文 type 字段
-    assert.strictEqual(pongRaw.toString().includes('"pong"'), false);
+    assert.strictEqual(pong.ok, true);
+    // 密文里不应出现明文 type 字段（整信封加密）
+    assert.strictEqual(readyRawCheck(pongRaw), false);
+    function readyRawCheck(rawStr) { return rawStr.includes('"type":"ping"'); }
   } finally {
     child.kill();
   }

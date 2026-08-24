@@ -181,6 +181,10 @@ server.on("upgrade", (req, socket, head) => {
   // /relay 已由 attachRelay 内部处理
 });
 
+function wsSendPlain(socket, envelope) {
+  socket.send(JSON.stringify(envelope));
+}
+
 function wsSend(socket, envelope) {
   socket.send(JSON.stringify(
     socket._key ? e2e.sealEnvelope(socket._key, envelope) : envelope));
@@ -204,27 +208,43 @@ wss.on("connection", (socket, req) => {
     catch { socket.close(4006, "decrypt error"); return; }
 
     if (!handshaken) {
+      // ===== E2E 两阶段握手（任务 #36）：先于标准校验处理 =====
+
+      // 阶段二：客户端 secure 帧（明文，仅含公钥；token 已在阶段一验证）
+      if (socket._serverPriv) {
+        if (msg.type === "secure" && msg.payload?.pub) {
+          try {
+            socket._key = e2e.deriveKey(socket._serverPriv, msg.payload.pub);
+            delete socket._serverPriv;
+            handshaken = true;
+            clearTimeout(kick);
+            logger.log("info", "ws", "hello", { client: "desktop", e2e: true });
+            // 加密回执会话就绪标记
+            socket.send(JSON.stringify(
+              e2e.sealEnvelope(socket._key, ok(msg.id, "hello.ok",
+                { e2e: { established: true } }))));
+          } catch { socket.close(4006, "key derivation failed"); }
+          return;
+        }
+        socket.close(4005, "e2e secure frame required"); return;
+      }
+
+      // 阶段一：明文 hello（标准校验在此之后）
       const hs = handshake(msg);
       if (!hs.ok) { socket.close(4001, hs.reason); return; }
-            if (WS_TOKEN && !safeEqual(String(msg.payload?.token || ""), WS_TOKEN)) {
+      if (WS_TOKEN && !safeEqual(String(msg.payload?.token || ""), WS_TOKEN)) {
         logger.log("error", "ws", "auth-failed");
         socket.close(4003, "bad token"); return;
       }
       if (E2E_REQUIRED) {
-        const clientPub = msg.payload?.pub;
-        if (!clientPub) { socket.close(4005, "e2e required"); return; }
         const serverKeys = e2e.genEcdh();
-        const sessionKey = e2e.deriveKey(serverKeys.privateKey, clientPub);
-        // 握手回执必须明文（客户端还没有会话密钥），公钥在 payload 里传递
-        socket.send(JSON.stringify(ok(msg.id, "hello.ok",
+        socket._serverPriv = serverKeys.privateKey;
+        wsSendPlain(socket, ok(msg.id, "hello.ok",
           { server: "codeforge", protocol: 1, client: hs.client,
-            e2e: { pub: serverKeys.publicBase64 } })));
-        socket._key = sessionKey;   // 之后的所有帧走加密
-        handshaken = true;
-        clearTimeout(kick);
-        logger.log("info", "ws", "hello", { client: hs.client, version: hs.version, e2e: true });
-        return;
+            e2e: { required: true, pub: serverKeys.publicBase64 } }));
+        return;                       // 等待 secure 帧，握手仍未完成
       }
+
       handshaken = true;
       clearTimeout(kick);
       logger.log("info", "ws", "hello", { client: hs.client, version: hs.version });

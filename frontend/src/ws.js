@@ -53,6 +53,7 @@ async function open(key, msg) {
 let e2eKey = null;        // 协商成功后置位
 let e2ePending = null;    // 进行中的密钥对（等待服务器回执公钥）
 let negotiating = false;  // true = 已发 hello、密钥未就绪：此间出站帧必须排队
+let handshakeDone = false;// 两阶段握手是否完成
 
 let socket = null;
 let seq = 0;
@@ -112,45 +113,61 @@ export function wsConnect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
   socket = new WebSocket(`${proto}://${location.host}/ws`);
 
-  socket.onopen = async () => {
-    // 生成本轮 ECDH 密钥对；hello 必须携带公钥，服务器(E2E模式)才能回执其公钥
-    e2ePending = await genPair();
+  socket.onopen = () => {
+    // 阶段一：明文 hello（公钥交换在收到 hello.ok 后进行——兼容非安全上下文）
+    e2ePending = null;
     negotiating = true;
     _sendRaw({ v: 1, id: "hello", type: "hello", payload: {
       client: "desktop", version: "0.1.0",
-      pub: e2ePending.pubB64,
       token: localStorage.getItem("cf.token") || undefined,
     } });
   };
   socket.onmessage = (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === "hello.ok" && !wsState.connected) {
-      wsState.connected = true;
-      if (msg.payload?.e2e?.pub && e2ePending) {
-        deriveKey(e2ePending.pair, msg.payload.e2e.pub).then(async (k) => {
-          e2eKey = k;
-          negotiating = false;
-          while (queue.length) {           // 排队帧全部加密后再发
-            const f = await seal(k, queue.shift());
-            socket.send(JSON.stringify(f));
-          }
+    if (!handshakeDone && msg.type === "hello.ok") {
+      // 阶段一完成：服务器要求 E2E → 发 secure 帧（明文，仅含客户端公钥）
+      if (msg.payload?.e2e?.required) {
+        if (!crypto.subtle) {
+          wsState.fatal = "当前页面非安全上下文，无法建立加密通道";
+          socket.close();
+          return;
+        }
+        genPair().then(async (pair) => {
+          e2ePending = pair;
+          _sendRaw({ v: 1, id: "secure", type: "secure",
+            payload: { pub: pair.pubB64,
+                       token: localStorage.getItem("cf.token") || undefined } });
+          // 阶段二回执是加密帧，由 msg.e===1 分支处理
         });
-        return;   // 密钥就绪后再冲队列，保证队列帧全部加密
+        return;
       }
-      negotiating = false;
+      handshakeDone = true; e2ePending = null; negotiating = false;
+      wsState.connected = true;
       while (queue.length) send(queue.shift());
+      return;
+    }
+
+    if (msg.e === 1 && !handshakeDone && msg.type === "hello.ok") {
+      // 阶段二完成：解密后的会话就绪标记
+      handshakeDone = true; negotiating = false;
+      wsState.connected = true;
+      while (queue.length) {           // 排队帧全部加密后冲出
+        seal(e2eKey, queue.shift()).then((f) => socket.send(JSON.stringify(f)));
+      }
       return;
     }
     if (msg.e === 1 && e2eKey) {
       open(e2eKey, msg).then(dispatch).catch(() => {});
       return;
     }
+    if (msg.e === 1) return;   // 无密钥却收到密文帧：丢弃
     dispatch(msg);
   };
   socket.onclose = () => {
     wsState.connected = false;
     e2eKey = null;                 // 旧会话密钥作废，重连后重新协商
+    handshakeDone = false;
     setTimeout(wsConnect, 3000);   // 自动重连
   };
   socket.onerror = () => socket.close();
