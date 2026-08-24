@@ -10,6 +10,7 @@ const { ok, fail, handshake, makeError } = require("./protocol");
 const { getPyWorker } = require("./services/pyworker");
 const { Workspace } = require("./services/workspace");
 const { BuildExecutor } = require("./services/executor");
+const { TerminalService } = require("./services/terminal");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, "..", "frontend", "dist")));
 const worker = getPyWorker();
 const workspace = new Workspace(WORKSPACE);
 const executor = new BuildExecutor();
+const terminals = new TerminalService();
 
 // ---------- REST ----------
 app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -157,6 +159,36 @@ wss.on("connection", (socket, req) => {
       case "build.cancel": {
         socket.send(JSON.stringify(ok(msg.id, "build.cancel",
           { cancelled: executor.cancel(String(msg.payload?.buildId || msg.id)) })));
+        break;
+      }
+      case "term.create": {
+        try {
+          const { id } = terminals.create({
+            cols: msg.payload?.cols, rows: msg.payload?.rows,
+            onOutput: (chunk, sessionId) => socket.send(JSON.stringify(
+              ok(msg.id, "term.output", { sessionId, chunk }))),
+            onExit: (code, sessionId) => socket.send(JSON.stringify(
+              ok(msg.id, "term.exit", { sessionId, exitCode: code }))),
+          });
+          socket.send(JSON.stringify(ok(msg.id, "term.created", { sessionId: id })));
+        } catch (e) {
+          const err = e.cfError || makeError("CF6001");
+          socket.send(JSON.stringify(fail(msg.id, "term.create", err.code,
+            { message: e.cfError?.message || err.message })));
+        }
+        break;
+      }
+      case "term.input": {
+        terminals.write(msg.payload?.sessionId, msg.payload?.data ?? "");
+        break;
+      }
+      case "term.resize": {
+        terminals.resize(msg.payload?.sessionId, msg.payload?.cols || 80, msg.payload?.rows || 24);
+        break;
+      }
+      case "term.kill": {
+        socket.send(JSON.stringify(ok(msg.id, "term.killed",
+          { killed: terminals.kill(msg.payload?.sessionId) })));
         break;
       }
       default:
