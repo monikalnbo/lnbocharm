@@ -10,6 +10,9 @@
       <button :disabled="store.buildRunning || !store.activePath" @click="run">
         {{ t("build.run") }}
       </button>
+      <button v-if="missingToolchain" class="install" @click="installMissing" :disabled="installProgress >= 0">
+        {{ installProgress >= 0 ? `下载中 ${installProgress}%` : `⬇ 一键安装 ${missingToolchain.value}` }}
+      </button>
     </div>
     <pre v-if="notice" class="notice">{{ notice }}</pre>
     <details class="history">
@@ -58,6 +61,8 @@ async function openAndRun(file) {
 loadHistory();
 
 const isElectron = !!window.codeforge;   // Electron 预加载注入（任务#21）
+const missingToolchain = ref("");        // CF2003 时记录缺失工具链
+const installProgress = ref(-1);
 
 on("build.output", ({ chunk }) => {
   append(chunk);
@@ -71,6 +76,50 @@ function recordHistory(file, mode, r) {
                 output: (r.output || "").slice(-2000) });
     localStorage.setItem("cf.history", JSON.stringify(h.slice(0, 20)));
   } catch {}
+}
+
+async function run() {
+  if (!store.activePath) return;
+  // 桌面端先预检工具链，缺则提示一键安装（任务 #41）
+  if (isElectron && store.buildMode !== "docker") {
+    const err = await preflight(store.activePath);
+    if (err) { notice.value = `缺少 ${err.details?.toolchain || ""}：${err.hint}`; 
+      missingToolchain.value = err.details?.toolchain || ""; store.buildRunning = false; return; }
+  }
+  await __runBody();
+}
+
+async function preflight(file) {
+  try {
+    const r = await fetch("/api/plan", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file }),
+    });
+    const j = await r.json();
+    if (!j.ok && j.error?.code === "CF2003") return j.error;
+    return null;
+  } catch { return null; }
+}
+
+
+
+// CF2003 → 一键下载安装（任务 #41）
+async function installMissing() {
+  if (!isElectron || !missingToolchain.value) return;
+  installProgress.value = 0;
+  const channel = "tc-progress-" + Date.now();
+  window.codeforge.onToolchainProgress(channel, ({ percent }) => {
+    installProgress.value = percent;
+  });
+  const r = await window.codeforge.installToolchain(missingToolchain.value, channel);
+  installProgress.value = -1;
+  if (r.ok) {
+    notice.value = `工具链 ${missingToolchain.value} 安装完成，正在重新构建…`;
+    missingToolchain.value = "";
+    setTimeout(run, 300);            // 自动重跑
+  } else {
+    notice.value = "安装失败：" + r.output;
+  }
 }
 
 on("build.result", (r) => {
@@ -92,7 +141,7 @@ function append(s) {
   nextTick(() => { if (out.value) out.value.scrollTop = out.value.scrollHeight; });
 }
 
-async function run() {
+async function __runBody() {
   if (!store.activePath) return;
   if (store.buildMode === "local") {
     // 本机构建走 Electron IPC；纯网页环境给出明确提示

@@ -53,9 +53,11 @@
     <TerminalView v-if="store.panels.terminal" class="bottom" />
 
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
+    <LockScreen />
 
     <!-- 状态栏 -->
     <footer class="statusbar">
+      <span v-if="memMB">内存 {{ memMB }} MB</span>
       <span>{{ store.notice }}</span>
       <button @click="togglePanel('left')">{{ t("statusbar.files") }}</button>
       <button @click="togglePanel('right')">{{ t("statusbar.panels") }}</button>
@@ -78,12 +80,20 @@ import BuildPanel from "./components/BuildPanel.vue";
 import ProblemsPanel from "./components/ProblemsPanel.vue";
 import TerminalView from "./components/TerminalView.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import LockScreen from "./components/LockScreen.vue";
 import BrowserPanel from "./components/BrowserPanel.vue";
 import LogPanel from "./components/LogPanel.vue";
 import SearchPanel from "./components/SearchPanel.vue";
 
 const treeRef = ref(null);
 const settingsOpen = ref(false);
+const memMB = ref(0);
+
+async function pollMemory() {
+  if (window.codeforge?.appMemory) {
+    try { memMB.value = (await window.codeforge.appMemory()).rssMB; } catch {}
+  }
+}
 const { t } = useI18n();
 const centerView = ref("editor");
 
@@ -96,6 +106,8 @@ const bgStyle = computed(() => {
 });
 
 onMounted(async () => {
+  pollMemory();
+  setInterval(pollMemory, 5000);
   await loadRegistry();
   initLspDiagnostics();
   wsConnect();

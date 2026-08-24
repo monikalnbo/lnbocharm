@@ -8,6 +8,8 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs");
 const { startAccelerator, getStatus } = require("./proxy");
+const applock = require("./applock");
+const toolchains = require("./toolchain-manager");
 
 const DIST_INDEX = path.join(__dirname, "..", "..", "frontend", "dist", "index.html");
 const PYLIB_DIR = path.join(__dirname, "..", "..", "pylib");
@@ -135,6 +137,34 @@ function runStep(cmd, cwd, append) {
 ipcMain.handle("workspace:path", () => ensureWorkspace());
 
 ipcMain.handle("accelerator:status", () => getStatus());
+
+// ---------- 应用锁（任务 #35）----------
+ipcMain.handle("applock:state", () => applock.state());
+ipcMain.handle("applock:enable", (_e, opts) => applock.enable(opts || {}));
+ipcMain.handle("applock:disable", () => applock.disable());
+ipcMain.handle("applock:unlock", (_e, opts) => applock.unlock(opts || {}));
+
+// ---------- 工具链安装（任务 #38/#41 一键补拉）----------
+ipcMain.handle("toolchain:list", async () => {
+  try { return { ok: true, list: await toolchains.list() }; }
+  catch (e) { return { ok: false, output: e.message }; }
+});
+ipcMain.handle("toolchain:install", async (_e, id, onProgressChannel) => {
+  return toolchains.install(id, (percent) => {
+    if (onProgressChannel && win && !win.isDestroyed())
+      win.webContents.send(onProgressChannel, { id, percent });
+  });
+});
+
+// ---------- 内存指标（任务 #34）----------
+ipcMain.handle("app:memory", () => {
+  const m = process.memoryUsage();
+  const procMem = process.getAppMetrics().map((x) => ({
+    type: x.type, pid: x.pid,
+    memMB: Math.round((x.memory?.workingSize || 0) / 1024 / 1024 * 10) / 10,
+  }));
+  return { rssMB: Math.round(m.rss / 1048576), procs: procMem };
+});
 
 ipcMain.handle("dialog:openFolder", async () => {
   const r = await dialog.showOpenDialog(win, { properties: ["openDirectory"] });
