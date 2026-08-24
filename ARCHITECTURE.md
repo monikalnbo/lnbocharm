@@ -99,6 +99,14 @@ REST `GET /api/languages` 直接下发该 JSON；前端 Monaco 配置、图标�
 
 三种模式产出同一个 `BuildResult`：`{ ok, cmd, exitCode, output[], durationMs, diagnostics[] }`。
 
+### 工具链分发（服务器托管 + 一键补拉）
+
+所有工具链压缩包**在服务器上存一份**，桌面端按需拉取：
+
+- `GET /api/toolchains` → 清单：`[{id, version, platform, size, sha256, url}]`
+- `GET /api/toolchains/:id/download` → 便携压缩包（tar.zst/zip），下载后校验 SHA256 → 解压到 `tools/<toolchain>/<version>/` → 注册进 PATH
+- **一键补拉流程**：构建报 CF2003（缺工具链）→ 前端弹出"一键下载安装"按钮 → 从服务器拉包安装 → 自动重跑构建；下载进度走 WS `toolchain.progress`
+
 ## 7. 插件扩展点（codeforge-py）
 
 - Lint 检查器：继承 `Checker`，用 `@checker("name")` 注册，放入 `checkers/` 或用户 `plugins/`
