@@ -1,5 +1,5 @@
 export default {
-  app: { logo: "⚒ CodeForge" },
+  app: { logo: "CodeForge" },
   topbar: {
     connected: "已连接",
     connecting: "连接中",
@@ -9,7 +9,7 @@ export default {
     background: "背景",
     settings: "设置",
   },
-  centerTabs: { editor: "编辑", browser: "🌐 浏览器" },
+  centerTabs: { editor: "编辑", browser: " 浏览器" },
   filetree: {
     title: "资源管理器",
     newFile: "新建文件",
@@ -20,7 +20,7 @@ export default {
   editor: { empty: "打开左侧文件开始编码" },
   build: {
     title: "构建",
-    run: "▶ 运行",
+    run: "运行",
     modes: { server: "服务器构建", local: "本机构建（桌面端）", docker: "Docker 构建" },
     localNeedsDesktop: "本机构建需要在桌面应用中运行；当前为浏览器模式，已切换为服务器构建。",
     dockerNeedsCompose: "Docker 构建模式需要服务器端工具链容器池（docker-compose up），当前先用服务器模式。",
@@ -31,7 +31,7 @@ export default {
   },
   problems: {
     title: "问题",
-    none: "无问题 ✓（保存后自动检查缩进/拼写）",
+    none: "无问题（保存后自动检查缩进/拼写）",
   },
   terminal: { title: "终端", new: "新建终端" },
   logs: {

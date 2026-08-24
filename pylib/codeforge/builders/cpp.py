@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import platform
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from .base import Builder, BuildPlan, builder
 

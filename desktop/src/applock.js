@@ -4,6 +4,7 @@
 /// - 空闲自动上锁（可配，默认 10 分钟）；凭据区操作可要求二次验证
 const { systemPreferences, safeStorage } = require("electron");
 const crypto = require("crypto");
+const os = require("os");
 const path = require("path");
 const fs = require("fs");
 

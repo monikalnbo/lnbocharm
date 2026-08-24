@@ -3,7 +3,7 @@
        :style="bgStyle">
     <!-- 顶栏 -->
     <header class="topbar">
-      <span class="logo">⚒ CodeForge</span>
+      <span class="logo">CodeForge</span>
       <span class="conn" :class="{ on: wsState.connected }">
         {{ wsState.connected ? "● " + t("topbar.connected") : "○ " + t("topbar.connecting") }}
       </span>
@@ -27,7 +27,7 @@
         <option value="zh-CN">中文</option>
         <option value="en">English</option>
       </select>
-      <button class="icon" :title="t('settings.title')" @click="settingsOpen = true">⚙ {{ t("settings.title") }}</button>
+      <button class="icon" :title="t('settings.title')" @click="settingsOpen = true">{{ t("settings.title") }}</button>
     </header>
 
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
@@ -39,7 +39,7 @@
           <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">{{ t("centerTabs.browser") }}</button>
         </div>
         <EditorArea v-show="centerView === 'editor'" class="center-body" />
-        <BrowserPanel v-if="centerView === 'browser'" class="center-body" />
+        <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
       </div>
       <aside v-if="store.panels.right" class="dock-right">
         <SearchPanel @jump="(m) => revealLine(m.path, m.line)" />

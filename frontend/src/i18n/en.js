@@ -1,5 +1,5 @@
 export default {
-  app: { logo: "⚒ CodeForge" },
+  app: { logo: "CodeForge" },
   topbar: {
     connected: "Connected",
     connecting: "Connecting…",
@@ -9,7 +9,7 @@ export default {
     background: "Background",
     settings: "Settings",
   },
-  centerTabs: { editor: "Editor", browser: "🌐 Browser" },
+  centerTabs: { editor: "Editor", browser: " Browser" },
   filetree: {
     title: "Explorer",
     newFile: "New file",
@@ -20,7 +20,7 @@ export default {
   editor: { empty: "Open a file from the explorer to start coding" },
   build: {
     title: "Build",
-    run: "▶ Run",
+    run: "Run",
     modes: { server: "Server build", local: "Local build (desktop)", docker: "Docker build" },
     localNeedsDesktop: "Local build requires the desktop app; switched to server build in web mode.",
     dockerNeedsCompose: "Docker mode requires the toolchain container pool (docker-compose up); using server build for now.",
@@ -31,7 +31,7 @@ export default {
   },
   problems: {
     title: "Problems",
-    none: "No issues ✓ (indent/spelling checked on save)",
+    none: "No issues (indent/spelling checked on save)",
   },
   terminal: { title: "Terminal", new: "New terminal" },
   logs: {

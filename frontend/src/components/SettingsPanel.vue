@@ -3,8 +3,16 @@
     <div class="settings" @keydown.esc="$emit('close')">
       <div class="s-head">
         <b>{{ t("settings.title") }}</b>
-        <button class="icon" @click="$emit('close')">✕</button>
+        <button class="icon" @click="$emit('close')">×</button>
       </div>
+
+      <section>
+        <h4>连接</h4>
+        <label>WS 访问令牌（服务器设置 CODEFORGE_TOKEN 时填写）</label>
+        <input v-model="s.wsToken" placeholder="留空表示无鉴权" />
+        <label>构建/加速器服务器地址（桌面端）</label>
+        <input v-model="s.serverUrl" placeholder="http://your-server:8787" />
+      </section>
 
       <section>
         <h4>{{ t("settings.buildSection") }}</h4>
@@ -59,6 +67,7 @@ const props = defineProps({ open: Boolean });
 const emit = defineEmits(["close"]);
 
 const DEFAULTS = {
+  wsToken: "", serverUrl: "",
   extraPaths: "", buildTimeoutSec: 60,
   maxLineLength: 120, checkSpelling: true, checkIndent: true,
   userWords: "",
@@ -70,6 +79,8 @@ const { t } = useI18n();
 function save() {
   track("settings.save");
   localStorage.setItem("cf.settings", JSON.stringify(s));
+  localStorage.setItem("cf.token", s.wsToken || "");
+  if (window.codeforge) localStorage.setItem("cf.serverUrl", s.serverUrl || "");
   store.lintOptions = {
     line_length: { max: s.maxLineLength },
     spelling: { enabled: s.checkSpelling, user_words: s.userWords.split(/[,，\s]+/).filter(Boolean) },

@@ -120,7 +120,7 @@ export async function runLint(path) {
       severity: d.severity === "error" ? monacoApi.MarkerSeverity.Error
               : d.severity === "warning" ? monacoApi.MarkerSeverity.Warning
               : monacoApi.MarkerSeverity.Info,
-      message: `${d.message}\n💡 ${d.hint}`,   // 不同错误不同提示
+      message: `${d.message}\n[提示] ${d.hint}`,   // 不同错误不同提示
       source: d.source,
       startLineNumber: d.line, startColumn: d.col,
       endLineNumber: d.line, endColumn: d.col + 1,

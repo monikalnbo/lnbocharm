@@ -10,7 +10,7 @@
       <div class="row" v-if="replaceMode">
         <input v-model="replacement" :placeholder="t('search.replacePlaceholder')" />
         <button @click="doReplace">全部替换</button>
-        <button class="icon" @click="replaceMode = false">✕</button>
+        <button class="icon" @click="replaceMode = false">×</button>
       </div>
       <div class="row" v-else>
         <button @click="doSearch" :disabled="!q">{{ t("search.searchBtn") }}</button>

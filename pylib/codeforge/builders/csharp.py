@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from ..errors import CodeForgeError
 from .base import Builder, BuildPlan, builder
@@ -22,7 +22,6 @@ class CSharpBuilder(Builder):
                 message="C# 需要 dotnet 工程（.csproj）才能构建",
                 hint="在源文件同目录创建工程：dotnet new console；或把文件放入已有工程")
         dll_name = csproj.stem + ".dll"
-        bin_dir = csproj.parent / "bin"
         build_cmd = [tc["dotnet"], "build", "-c", "Release",
                      "-o", str(out_dir), str(csproj)]
         run_cmd = [tc["dotnet"], str(out_dir / dll_name)] + list(run_args or [])

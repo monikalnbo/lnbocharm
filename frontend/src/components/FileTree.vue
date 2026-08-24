@@ -12,7 +12,7 @@
           @click="node.dir ? toggle(node) : open(node.path)">
         {{ node.dir ? (collapsed.has(node.path) ? '▸' : '▾') : iconOf(node.name) }}
         {{ node.name }}
-        <span class="del" v-if="!node.dir" @click.stop="onDelete(node)">✕</span>
+        <span class="del" v-if="!node.dir" @click.stop="onDelete(node)">×</span>
       </li>
     </ul>
   </div>
@@ -37,8 +37,11 @@ onMounted(refresh);
 defineExpose({ refresh });
 
 function flatten(nodes, depth = 0) {
+  // 目录优先，同级按名称排序
+  const sorted = [...nodes].sort((a, b) =>
+    (b.dir - a.dir) || a.name.localeCompare(b.name));
   const out = [];
-  for (const n of nodes) {
+  for (const n of sorted) {
     out.push({ ...n, _depth: depth });
     if (n.dir && n.children && !collapsed.value.has(n.path))
       out.push(...flatten(n.children, depth + 1));
@@ -70,10 +73,21 @@ async function onDelete(node) {
   refresh();
 }
 
+// 图标/标签由语言注册表驱动（不再硬编码映射表）
 function iconOf(name) {
-  const ext = name.slice(name.lastIndexOf(".") + 1);
-  const map = { py: "🐍", rs: "🦀", java: "☕", cs: "♯", ts: "🅃𝅿S", js: "JS",
-                c: "C", cpp: "C++", cc: "C++", h: "H", hpp: "H++", md: "📄", json: "{}" };
-  return map[ext] || "•";
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return "•";
+  const langName = store.extMap[name.slice(dot).toLowerCase()];
+  if (!langName) return "•";
+  const m = store.registry[langName];
+  return m?.monacoId === "python" ? "PY"
+       : m?.monacoId === "rust" ? "RS"
+       : m?.monacoId === "java" ? "JV"
+       : m?.monacoId === "csharp" ? "C#"
+       : (m?.monacoId === "cpp") ? "C+"
+       : (m?.monacoId === "c") ? "C"
+       : (m?.monacoId === "typescript") ? "TS"
+       : (m?.monacoId === "javascript") ? "JS"
+       : (m?.monacoId || langName).slice(0, 2).toUpperCase();
 }
 </script>

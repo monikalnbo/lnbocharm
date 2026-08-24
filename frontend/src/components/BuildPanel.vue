@@ -10,8 +10,9 @@
       <button :disabled="store.buildRunning || !store.activePath" @click="run">
         {{ t("build.run") }}
       </button>
+      <span v-if="detectedLang" class="lang-badge">{{ detectedLang }}</span>
       <button v-if="missingToolchain" class="install" @click="installMissing" :disabled="installProgress >= 0">
-        {{ installProgress >= 0 ? `下载中 ${installProgress}%` : `⬇ 一键安装 ${missingToolchain.value}` }}
+        {{ installProgress >= 0 ? `下载中 ${installProgress}%` : `一键安装 ${missingToolchain}` }}
       </button>
     </div>
     <pre v-if="notice" class="notice">{{ notice }}</pre>
@@ -19,10 +20,10 @@
       <summary>{{ t("build.history", { n: history.length }) }}</summary>
       <ul>
         <li v-for="(h, i) in history" :key="i">
-          <span :class="h.ok ? 'ok' : 'bad'">{{ h.ok ? '✓' : '✗' }}</span>
+          <span :class="h.ok ? 'ok' : 'bad'">{{ h.ok ? "成功" : "失败" }}</span>
           {{ new Date(h.ts).toLocaleTimeString() }} · {{ h.mode }} · {{ h.file.split('/').pop() }} · {{ h.ms }}ms
-          <button class="icon" :title="t('build.viewOutput')" @click="viewHistory(h)">👁</button>
-          <button class="icon" :title="t('build.rerun')" @click="rerun(h)">↻</button>
+          <button class="icon" :title="t('build.viewOutput')" @click="viewHistory(h)">查看</button>
+          <button class="icon" :title="t('build.rerun')" @click="rerun(h)">重跑</button>
         </li>
       </ul>
     </details>
@@ -62,6 +63,12 @@ loadHistory();
 
 const isElectron = !!window.codeforge;   // Electron 预加载注入（任务#21）
 const missingToolchain = ref("");        // CF2003 时记录缺失工具链
+const detectedLang = computed(() => {
+  const p = store.activePath;
+  if (!p) return "";
+  const dot = p.lastIndexOf(".");
+  return store.registry[store.extMap[p.slice(dot).toLowerCase()]]?.name || "";
+});
 const installProgress = ref(-1);
 
 on("build.output", ({ chunk }) => {
@@ -125,8 +132,8 @@ async function installMissing() {
 on("build.result", (r) => {
   store.buildRunning = false;
   track("build.done", store.activePath, { ok: r.ok });
-  const tail = r.ok ? `✓ 成功（${r.durationMs}ms，退出码 ${r.exitCode}）`
-                    : `✗ 失败（退出码 ${r.exitCode}）`;
+  const tail = r.ok ? `成功（${r.durationMs}ms，退出码 ${r.exitCode}）`
+                    : `失败（退出码 ${r.exitCode}）`;
   append(`\n=== ${tail} ===\n`);
   if (_histFile.value) {
     recordHistory(_histFile.value, _histMode.value,
@@ -155,7 +162,7 @@ async function __runBody() {
       try {
         const r = await window.codeforge.localBuild(store.activePath);
         append(r.output);
-        append(`\n=== ${r.ok ? "✓ 成功" : "✗ 失败"}（${r.durationMs}ms）===\n`);
+        append(`\n=== ${r.ok ? "成功" : "失败"}（${r.durationMs}ms）===\n`);
         recordHistory(f0, "local", { ...r, output: r.output || store.buildOutput });
         loadHistory();
       } finally { store.buildRunning = false; }
@@ -182,4 +189,8 @@ async function __runBody() {
 .history ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 120px; overflow: auto; }
 .history li { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
 .history .ok { color: #3fb950; } .history .bad { color: #f85149; }
+</style>
+
+<style scoped>
+.lang-badge { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 0 7px; }
 </style>

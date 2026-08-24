@@ -1,12 +1,11 @@
 <template>
   <div v-if="locked" class="lock-mask">
     <div class="lock-card">
-      <div class="lock-icon">🔒</div>
-      <h3>CodeForge 已锁定</h3>
+      <h3 class="lock-title">CodeForge 已锁定</h3>
       <p v-if="hint" class="hint">{{ hint }}</p>
 
       <template v-if="method === 'touchid'">
-        <button class="primary" @click="unlockTouchId">👆 使用指纹解锁</button>
+        <button class="primary" @click="unlockTouchId">使用指纹解锁</button>
       </template>
       <template v-else>
         <input type="password" v-model="password"
@@ -52,7 +51,7 @@ async function unlockPassword() {
 .lock-mask { position: fixed; inset: 0; background: rgba(5,8,14,.92); backdrop-filter: blur(6px);
   display:flex; align-items:center; justify-content:center; z-index:100; }
 .lock-card { text-align:center; color:var(--text); }
-.lock-icon { font-size:42px; margin-bottom:8px; }
+.lock-title { margin-bottom:12px; }
 h3 { margin-bottom:12px; font-weight:600; }
 input { display:block; width:240px; margin:10px auto; padding:8px 12px;
   background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; }

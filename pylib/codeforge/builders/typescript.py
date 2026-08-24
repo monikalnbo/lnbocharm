@@ -5,7 +5,7 @@ node 运行时随桌面端内置；tsc 由工具链管理器提供。
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from .base import Builder, BuildPlan, builder
 

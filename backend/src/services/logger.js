@@ -39,10 +39,11 @@ function log(level, source, event, data = {}) {
 
 /// 查询：倒序返回，可按级别/来源过滤
 function tail({ limit = 300, level, source } = {}) {
+  limit = Number.isFinite(+limit) && +limit > 0 ? Math.min(+limit, RING_MAX) : 300;
   let out = [...ring].reverse();
   if (level) out = out.filter((r) => r.level === level);
   if (source) out = out.filter((r) => r.source === source);
-  return out.slice(0, Math.min(limit, RING_MAX));
+  return out.slice(0, limit);
 }
 
 module.exports = { log, tail, initFile, ring };
