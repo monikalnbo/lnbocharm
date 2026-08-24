@@ -1,0 +1,74 @@
+# CodeForge 服务器全家桶：后端 + 六语言工具链容器池
+# 用法: docker compose up -d
+#
+# 构建模式说明（ARCHITECTURE.md 第6节）：
+#   docker 模式下，构建命令在对应工具链容器内执行：
+#     docker compose exec -T gcc gcc -g -O0 main.c -o /tmp/out/main
+#   容器常驻（sleep infinity）避免每次冷启动；资源限制见 deploy 段。
+
+services:
+  # ---- 后端 ----
+  server:
+    image: node:20-alpine
+    working_dir: /app/backend
+    volumes:
+      - .:/app
+    environment:
+      PORT: "8787"
+      CODEFORGE_WS: /app/workspace-demo
+    command: sh -c "npm ci --omit=dev && node src/index.js"
+    ports:
+      - "8787:8787"
+    depends_on:
+      - gcc
+      - rust
+      - java
+      - dotnet
+      - python
+    restart: unless-stopped
+
+  # ---- 工具链容器池（C/C++/Rust/Java/C#/Python + Node/TS）----
+  gcc:
+    image: gcc:13
+    command: sleep infinity
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 2g
+
+  rust:
+    image: rust:1.79
+    command: sleep infinity
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 2g
+
+  java:
+    image: eclipse-temurin:21-jdk
+    command: sleep infinity
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 2g
+
+  dotnet:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    command: sleep infinity
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 2g
+
+  python:
+    image: python:3.12
+    command: sleep infinity
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 1g
+
+  node:
+    image: node:20-alpine
+    command: sh -c "npm i -g typescript && sleep infinity"
+    working_dir: /workspace
+    volumes: [wsdata:/workspace]
+    mem_limit: 1g
+
+volumes:
+  wsdata:
