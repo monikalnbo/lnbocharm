@@ -14,6 +14,8 @@ extraResources:
     to: pylib
   - from: ../shared
     to: shared
+  - from: ../backend
+    to: backend
 
 win:
   target: [{ target: zip, arch: [x64] }]

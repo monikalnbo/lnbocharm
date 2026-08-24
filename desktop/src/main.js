@@ -12,11 +12,18 @@ const applock = require("./applock");
 const toolchains = require("./toolchain-manager");
 
 const DIST_INDEX = path.join(__dirname, "..", "..", "frontend", "dist", "index.html");
-const PYLIB_DIR = path.join(__dirname, "..", "..", "pylib");
+function pylibDir() {
+  // 打包后 app.asar 是虚拟文件系统，子进程无法读取——必须用解压后的 resources 路径
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "pylib")
+    : path.join(__dirname, "..", "..", "pylib");
+}
+const PYLIB_DIR = path.join(__dirname, "..", "..", "pylib");   // 仅开发模式使用
 const WORKSPACE_ROOT = path.join(__dirname, "..", "..", "workspace-demo");
 const MAX_TAIL = 512 * 1024;
 
 let win = null;
+let serverProc = null;
 
 // 单实例锁：重复启动时聚焦已有窗口
 const gotLock = app.requestSingleInstanceLock();
@@ -44,6 +51,33 @@ function buildAppMenu() {
   ]));
 }
 
+/// 内嵌后端：打包/源码运行都拉起本地构建服务器（REST+WS 同源，前端零改动）
+async function startEmbeddedBackend() {
+  const port = process.env.PORT || "8787";
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/health`);
+    if (r.ok) return port;                       // 已有实例，复用
+  } catch {}
+  const entry = app.isPackaged
+    ? path.join(process.resourcesPath, "backend", "src", "index.js")
+    : path.join(__dirname, "..", "..", "backend", "src", "index.js");
+  serverProc = spawn(process.execPath, [entry], {
+    env: { ...process.env,
+           ELECTRON_RUN_AS_NODE: "1",          // 关键：以纯 Node 模式运行，否则变成第二个 GUI 实例
+           PORT: port,
+           CODEFORGE_WS: path.join(os.tmpdir(), "codeforge-workspace") },
+    stdio: "ignore",
+  });
+  for (let i = 0; i < 60; i++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/health`);
+      if (r.ok) return port;
+    } catch {}
+    await new Promise((res) => setTimeout(res, 200));
+  }
+  throw new Error("embedded backend failed to start");
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1440,
@@ -57,8 +91,16 @@ function createWindow() {
     },
   });
   win.setTitle("CodeForge");
-  if (process.env.VITE_DEV_URL) win.loadURL(process.env.VITE_DEV_URL);
-  else win.loadFile(DIST_INDEX);
+  if (process.env.VITE_DEV_URL) {
+    win.loadURL(process.env.VITE_DEV_URL);          // 开发模式：vite + 自行启动的后端
+    return;
+  }
+  startEmbeddedBackend()
+    .then((port) => win.loadURL(`http://127.0.0.1:${port}`))
+    .catch((e) => {
+      if (win && !win.isDestroyed())
+        dialog.showErrorBox("CodeForge", "内置服务启动失败：\n" + e.message);
+    });
 }
 
 app.whenReady().then(() => {
@@ -77,6 +119,7 @@ app.on("second-instance", () => {
 });
 
 app.on("window-all-closed", () => app.quit());
+app.on("before-quit", () => { try { serverProc?.kill(); } catch (_) {} });
 
 function readRelayUrl() {
   try {
@@ -92,10 +135,19 @@ function ensureWorkspace() {
   return WORKSPACE_ROOT;
 }
 
+/// 探测可用的 Python 解释器（Windows 上通常只有 python/py）
+function pickPython() {
+  for (const cand of ["python3", "python", "py"]) {
+    const r = require("child_process").spawnSync(cand, ["-V"], { encoding: "utf8" });
+    if (!r.error) return cand;
+  }
+  return "python3";   // 兜底，让上层给出统一的 CF2003 风格错误
+}
+
 // ---------- codeforge serve 单请求往返 ----------
 function serveOnce(id, op, args) {
   return new Promise((resolve, reject) => {
-    const proc = spawn("python3", ["-m", "codeforge", "serve"], { cwd: PYLIB_DIR });
+    const proc = spawn(pickPython(), ["-m", "codeforge", "serve"], { cwd: pylibDir() });
     let buf = "";
     proc.stdout.on("data", (d) => {
       buf += d;
@@ -168,6 +220,16 @@ function runStep(cmd, cwd, append) {
 
 // ---------- 其他 IPC ----------
 ipcMain.handle("workspace:path", () => ensureWorkspace());
+
+ipcMain.handle("settings:setServer", (_e, cfg = {}) => {
+  const file = path.join(os.homedir(), ".codeforge", "settings.json");
+  let cur = {};
+  try { cur = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+  if (cfg.serverUrl) cur.serverUrl = cfg.serverUrl;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(cur, null, 2));
+  return { ok: true };
+});
 
 ipcMain.handle("accelerator:status", () => getStatus());
 ipcMain.handle("accelerator:fingerprint", () => {

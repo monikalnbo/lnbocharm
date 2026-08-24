@@ -49,6 +49,9 @@ jobs:
         run: |
           npm ci --no-fund --no-audit || npm install --no-fund --no-audit
           npm run build
+      - name: 安装后端生产依赖（随包分发）
+        run: npm ci --omit=dev --no-fund --no-audit || npm install --omit=dev --no-fund --no-audit
+        working-directory: backend
       - name: 打包桌面端
         working-directory: desktop
         env:

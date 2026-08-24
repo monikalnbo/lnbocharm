@@ -33,4 +33,7 @@ contextBridge.exposeInMainWorld("codeforge", {
 
   /// 内存指标（任务 #34）
   appMemory: () => ipcRenderer.invoke("app:memory"),
+
+  /// 设置桥接：serverUrl 写入 ~/.codeforge/settings.json 供主进程读取
+  setServerConfig: (cfg) => ipcRenderer.invoke("settings:setServer", cfg),
 });

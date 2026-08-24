@@ -80,7 +80,9 @@ function save() {
   track("settings.save");
   localStorage.setItem("cf.settings", JSON.stringify(s));
   localStorage.setItem("cf.token", s.wsToken || "");
-  if (window.codeforge) localStorage.setItem("cf.serverUrl", s.serverUrl || "");
+  // 桥接到桌面主进程（工具链安装/加速器隧道从 settings.json 读取）
+  if (window.codeforge?.setServerConfig)
+    window.codeforge.setServerConfig({ serverUrl: s.serverUrl });
   store.lintOptions = {
     line_length: { max: s.maxLineLength },
     spelling: { enabled: s.checkSpelling, user_words: s.userWords.split(/[,，\s]+/).filter(Boolean) },

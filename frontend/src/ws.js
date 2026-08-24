@@ -167,6 +167,7 @@ export function wsConnect() {
   socket.onclose = () => {
     wsState.connected = false;
     e2eKey = null;                 // 旧会话密钥作废，重连后重新协商
+    negotiating = false;           // 复位协商窗口，避免重连后出站帧被永久排队
     handshakeDone = false;
     setTimeout(wsConnect, 3000);   // 自动重连
   };

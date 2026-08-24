@@ -105,9 +105,12 @@ function pipeConnect(clientSocket, host, port, head) {
   clientSocket.on("close", () => { try { ws.close(); } catch (_) {} });
 }
 
-function startAccelerator(opts = {}) {
+let serverRef = null;
+
+async function startAccelerator(opts = {}) {
   configure(opts);
   if (status.running) return getStatus();
+  if (serverRef) { try { serverRef.close(); } catch (_) {} }
   const port = opts.port ?? 7788;
 
   const server = http.createServer((_req, res) => {
@@ -128,9 +131,18 @@ function startAccelerator(opts = {}) {
     }
   });
 
-  server.listen(port, "127.0.0.1", () => setStatus({ running: true, port }));
-  server.on("error", () => setStatus({ running: false }));
+  serverRef = server;
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
+  });
+  setStatus({ running: true, port });
   return getStatus();
 }
 
-module.exports = { startAccelerator, getStatus };
+function stopAccelerator() {
+  try { serverRef?.close(); } catch (_) {}
+  setStatus({ running: false });
+}
+
+module.exports = { startAccelerator, stopAccelerator, getStatus };

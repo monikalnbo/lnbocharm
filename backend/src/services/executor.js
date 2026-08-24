@@ -32,7 +32,8 @@ class BuildExecutor {
     return new Promise((resolve, reject) => {
       if (this.running >= MAX_CONCURRENT) {
         if (this.queue.length >= MAX_QUEUE) {
-          return reject(makeError("CF2004", { limit: MAX_QUEUE }));
+          const err = makeError("CF2004", { limit: MAX_QUEUE });
+          return reject(Object.assign(new Error(err.message), { cfError: err }));
         }
         this.queue.push({ buildId, run: () => this._start(buildId, plan, { cwd: workdirRoot || cwd, timeoutMs, onOutput }, resolve, reject), reject });
         onOutput(`[queue] 排队中（前方 ${this.queue.length} 个任务）`);
