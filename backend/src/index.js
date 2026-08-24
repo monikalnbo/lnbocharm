@@ -12,6 +12,7 @@ const { Workspace } = require("./services/workspace");
 const { BuildExecutor } = require("./services/executor");
 const { TerminalService } = require("./services/terminal");
 const { LspManager } = require("./services/lsp");
+const { attachRelay } = require("./services/relay");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
@@ -103,8 +104,16 @@ app.post("/api/plan", async (req, res) => {
 });
 
 // ---------- WS ----------
+// 双路径：/ws 统一信封协议；/relay 加速器 TCP 隧道
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: "/ws" });
+const wss = new WebSocketServer({ noServer: true });
+attachRelay(server);
+
+server.on("upgrade", (req, socket, head) => {
+  const { pathname } = new URL(req.url, "http://localhost");
+  if (pathname === "/ws") wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+  // /relay 已由 attachRelay 内部处理
+});
 
 wss.on("connection", (socket, req) => {
   let handshaken = false;

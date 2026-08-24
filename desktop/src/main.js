@@ -2,11 +2,12 @@
 /// - 加载前端（开发: VITE_DEV_URL / 生产: ../../frontend/dist）
 /// - IPC: 本机构建（codeforge-py plan → 子进程 argv 数组执行，禁 shell 防注入）
 /// - 安全基线(#26)：contextIsolation 开、nodeIntegration 关、渲染层仅经 preload 桥
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, session } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
+const { startAccelerator, getStatus } = require("./proxy");
 
 const DIST_INDEX = path.join(__dirname, "..", "..", "frontend", "dist", "index.html");
 const PYLIB_DIR = path.join(__dirname, "..", "..", "pylib");
@@ -24,14 +25,31 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,        // 内嵌浏览器（Chromium 内核，任务#22）
     },
   });
   if (process.env.VITE_DEV_URL) win.loadURL(process.env.VITE_DEV_URL);
   else win.loadFile(DIST_INDEX);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // 加速器随应用自启：本地代理 + 内嵌浏览器 session 绑定
+  const relay = readRelayUrl();
+  const st = startAccelerator({ relayUrl: relay, port: 7788 });
+  session.fromPartition("persist:accelerated")
+    .setProxy({ proxyRules: `127.0.0.1:${st.port || 7788}` })
+    .catch(() => {});
+  createWindow();
+});
 app.on("window-all-closed", () => app.quit());
+
+function readRelayUrl() {
+  try {
+    const p = path.join(os.homedir(), ".codeforge", "settings.json");
+    const s = JSON.parse(fs.readFileSync(p, "utf8"));
+    return s.relayUrl || process.env.CODEFORGE_RELAY;
+  } catch { return process.env.CODEFORGE_RELAY; }
+}
 
 function ensureWorkspace() {
   try { fs.accessSync(WORKSPACE_ROOT); }
@@ -115,6 +133,8 @@ function runStep(cmd, cwd, append) {
 
 // ---------- 其他 IPC ----------
 ipcMain.handle("workspace:path", () => ensureWorkspace());
+
+ipcMain.handle("accelerator:status", () => getStatus());
 
 ipcMain.handle("dialog:openFolder", async () => {
   const r = await dialog.showOpenDialog(win, { properties: ["openDirectory"] });

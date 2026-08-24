@@ -94,3 +94,9 @@ button.icon { padding: 1px 7px; }
 }
 
 [data-theme="light"] { --bg:#f5f5f5; --panel:#ffffff; --border:#d0d7de; --text:#1f2328; --dim:#656d76; }
+
+/* 浏览器标签切换 */
+.center-tabs { display: flex; flex-direction: column; min-height: 0; }
+.center-tabbar { display: flex; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.center-tabbar button.on { border-color: var(--accent); color: var(--accent); }
+.center-body { flex: 1; min-height: 0; }

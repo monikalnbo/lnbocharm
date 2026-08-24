@@ -211,7 +211,11 @@ class LspManager {
   _sweep() {
     const now = Date.now();
     for (const [lang, p] of this.pool) {
-      if (now - p.lastUsed > this.idleTimeoutMs) { p.kill(); this.pool.delete(lang); }
+      if (p.pending && p.pending.size) continue;   // 初始化/请求中，不可回收
+      if (!p.exited && now - p.lastUsed > this.idleTimeoutMs) {
+        p.kill();
+        this.pool.delete(lang);
+      }
     }
   }
 }

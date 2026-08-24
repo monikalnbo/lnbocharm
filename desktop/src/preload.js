@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld("codeforge", {
   /// 工作区路径 / 文件夹选择
   workspacePath: () => ipcRenderer.invoke("workspace:path"),
   openFolderDialog: () => ipcRenderer.invoke("dialog:openFolder"),
+
+  /// 加速器状态（随应用自启）
+  acceleratorStatus: () => ipcRenderer.invoke("accelerator:status"),
 });

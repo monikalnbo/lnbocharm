@@ -28,7 +28,14 @@
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
     <div class="mid">
       <FileTree v-if="store.panels.left" class="dock-left" ref="treeRef" />
-      <EditorArea class="dock-center" />
+      <div class="dock-center center-tabs">
+        <div class="center-tabbar">
+          <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">编辑</button>
+          <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">🌐 浏览器</button>
+        </div>
+        <EditorArea v-show="centerView === 'editor'" class="center-body" />
+        <BrowserPanel v-if="centerView === 'browser'" class="center-body" />
+      </div>
       <aside v-if="store.panels.right" class="dock-right">
         <BuildPanel />
         <ProblemsPanel />
@@ -61,9 +68,11 @@ import BuildPanel from "./components/BuildPanel.vue";
 import ProblemsPanel from "./components/ProblemsPanel.vue";
 import TerminalView from "./components/TerminalView.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import BrowserPanel from "./components/BrowserPanel.vue";
 
 const treeRef = ref(null);
 const settingsOpen = ref(false);
+const centerView = ref("editor");
 
 const bgStyle = computed(() => {
   const bg = store.background;
