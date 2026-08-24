@@ -9,6 +9,7 @@ const { WebSocketServer } = require("ws");
 const { ok, fail, handshake, makeError } = require("./protocol");
 const { getPyWorker } = require("./services/pyworker");
 const { Workspace } = require("./services/workspace");
+const { BuildExecutor } = require("./services/executor");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
@@ -19,6 +20,7 @@ app.use(express.static(path.join(__dirname, "..", "frontend", "dist")));
 
 const worker = getPyWorker();
 const workspace = new Workspace(WORKSPACE);
+const executor = new BuildExecutor();
 
 // ---------- REST ----------
 app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -124,15 +126,37 @@ wss.on("connection", (socket, req) => {
         socket.send(JSON.stringify(ok(msg.id, "pong")));
         break;
       case "build.start": {
-        // 服务器原生构建：先 plan 再执行（执行器任务 #13 接入）
-        worker.request(msg.id, "plan", {
-          file: msg.payload?.file, out_dir: "/tmp/cf-build/" + (msg.id || "x"),
+        // plan → 执行 → 流式输出。服务器原生模式（local/docker 模式由桌面端/容器层接入）
+        const p = msg.payload || {};
+        const outDir = "/tmp/cf-build/" + (msg.id || String(Date.now()));
+        worker.request(msg.id + ":plan", "plan", {
+          file: p.file, out_dir: outDir, run_args: p.runArgs,
         }).then((plan) => {
           socket.send(JSON.stringify(ok(msg.id, "build.plan", plan)));
+          return executor.execute(String(msg.id), plan, {
+            cwd: WORKSPACE,
+            timeoutMs: p.timeoutMs,
+            onOutput: (chunk) => socket.send(JSON.stringify(
+              ok(msg.id, "build.output", { chunk, stream: "stdout" }))),
+          });
+        }).then((result) => {
+          if (result !== undefined)
+            socket.send(JSON.stringify(ok(msg.id, "build.result", result)));
         }).catch((e) => {
-          const err = e.cfError || makeError("CF2003");
-          socket.send(JSON.stringify(fail(msg.id, "build.plan", err.code, err.details || {})));
+          const err = e.cfError || makeError("CF2001", {}, { message: e.message });
+          // 编译失败带 exitCode 的普通错误：走 result 而非 error
+          if (err.code === "CF2001" && typeof e.exitCode === "number") {
+            socket.send(JSON.stringify(ok(msg.id, "build.result",
+              { ok: false, exitCode: e.exitCode, durationMs: 0 })));
+          } else {
+            socket.send(JSON.stringify(fail(msg.id, "build.result", err.code, err.details || {})));
+          }
         });
+        break;
+      }
+      case "build.cancel": {
+        socket.send(JSON.stringify(ok(msg.id, "build.cancel",
+          { cancelled: executor.cancel(String(msg.payload?.buildId || msg.id)) })));
         break;
       }
       default:
