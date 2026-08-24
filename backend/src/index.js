@@ -17,6 +17,10 @@ const { attachRelay } = require("./services/relay");
 const e2e = require("./services/crypto-channel");
 const E2E_REQUIRED = process.env.CODEFORGE_E2E === "1";
 const WS_TOKEN = process.env.CODEFORGE_TOKEN || "";
+function safeEqual(a, b) {
+  const ab = Buffer.from(a), bb = Buffer.from(b);
+  return ab.length === bb.length && require("crypto").timingSafeEqual(ab, bb);
+}
 const logger = require("./services/logger");
 const { search, replaceAll } = require("./services/search");
 const toolchainStore = require("./services/toolchains");
@@ -202,7 +206,7 @@ wss.on("connection", (socket, req) => {
     if (!handshaken) {
       const hs = handshake(msg);
       if (!hs.ok) { socket.close(4001, hs.reason); return; }
-      if (WS_TOKEN && msg.payload?.token !== WS_TOKEN) {
+            if (WS_TOKEN && !safeEqual(String(msg.payload?.token || ""), WS_TOKEN)) {
         logger.log("error", "ws", "auth-failed");
         socket.close(4003, "bad token"); return;
       }

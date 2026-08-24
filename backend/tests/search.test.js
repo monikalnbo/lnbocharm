@@ -57,3 +57,23 @@ test("替换：正则元字符按字面处理不炸", async () => {
   assert.strictEqual(r.total, 1);
   assert.ok(fs.readFileSync(path.join(ws.root, "d.txt"), "utf8").includes("XYZ"));
 });
+
+// ---------- 回归：正则 /g 的 lastIndex 残留曾导致漏配 ----------
+
+test("搜索：正则模式不因 lastIndex 残留漏配", async () => {
+  const ws = setup();
+  fs.writeFileSync(path.join(ws.root, "e.txt"),
+    "xx hello\nzz hello yy\nhello three\n");
+  const r = await search(ws, { q: "hello", regex: true });
+  const eFile = r.matches.find((m) => m.path === "e.txt");
+  assert.ok(eFile, "应命中 e.txt");
+  assert.deepStrictEqual(eFile.lines.map((l) => l.n), [1, 2, 3]);   // 曾漏掉第2行
+});
+
+test("替换：正则模式同样不受 lastIndex 影响", async () => {
+  const ws = setup();
+  fs.writeFileSync(path.join(ws.root, "f.txt"), "aa X bb X cc\n");
+  const r = await replaceAll(ws, { q: "X", replacement: "Y" });
+  assert.strictEqual(r.total, 2);
+  assert.ok(fs.readFileSync(path.join(ws.root, "f.txt"), "utf8").includes("aa Y bb Y cc"));
+});

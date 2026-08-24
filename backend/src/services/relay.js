@@ -17,10 +17,11 @@ function attachRelay(server) {
     if (pathname !== "/relay") return;   // /ws 由主 WSS 处理
     // 隧道鉴权（任务#26）：CODEFORGE_TOKEN 设置时必须 ?token= 匹配
     if (process.env.CODEFORGE_RELAY_TOKEN) {
-      const token = new URL(req.url, "http://localhost").searchParams.get("token");
-      if (token !== process.env.CODEFORGE_RELAY_TOKEN) {
-        socket.destroy(); return;
-      }
+      const token = new URL(req.url, "http://localhost").searchParams.get("token") || "";
+      const expect = process.env.CODEFORGE_RELAY_TOKEN;
+      const okEq = token.length === expect.length &&
+        require("crypto").timingSafeEqual(Buffer.from(token), Buffer.from(expect));
+      if (!okEq) { socket.destroy(); return; }
     }
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });

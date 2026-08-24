@@ -70,15 +70,18 @@ async function doReplace() {
   lastReplace.value = await api.searchReplace({
     q: q.value, replacement: replacement.value,
     caseSensitive: caseSensitive.value });
-  // 磁盘已更新：刷新打开且无未保存修改的模型
+  // 磁盘已更新：仅刷新"无未保存修改"的模型，绝不覆盖用户编辑
   for (const f of matches.value) {
     const model = getModelByPathSafe(f.path);
-    if (!model || model.isDirty?.() === false || model.getAlternativeVersionId === undefined) {
-      try {
-        const fresh = await api.reloadModel(f.path);
-        model?.setValue(fresh);
-      } catch {}
-    }
+    if (!model) continue;
+    const dirty = typeof model.isDirty === "function"
+      ? model.isDirty()
+      : model.getVersionId() > model.getAlternativeVersionId();
+    if (dirty) continue;
+    try {
+      const fresh = await api.reloadModel(f.path);
+      if (model.getValue() !== fresh) model.setValue(fresh);
+    } catch {}
   }
 }
 </script>

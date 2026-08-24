@@ -127,7 +127,8 @@ class BuildExecutor {
     const qi = this.queue.findIndex((q) => q.buildId === buildId);
     if (qi >= 0) {
       const [removed] = this.queue.splice(qi, 1);
-      removed.reject(makeError("CF2004", { message: "已取消（尚未开始）" }));
+      removed.reject(Object.assign(new Error("已取消"),
+        { cfError: makeError("CF2004", { message: "已取消（尚未开始）" }) }));
       return true;
     }
     return false;

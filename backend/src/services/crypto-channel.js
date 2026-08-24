@@ -58,7 +58,9 @@ function openEnvelope(key, msg) {
   if (!msg || !msg.e || !msg.d) return msg;
   const plain = open(key, Buffer.from(msg.d, "base64")).toString("utf8");
   const inner = JSON.parse(plain);
-  return { ...msg, ...inner };
+  const { e, d, ...cleanMsg } = msg;
+  void e; void d;
+  return { ...cleanMsg, ...inner };
 }
 
 module.exports = { genEcdh, deriveKey, seal, open, sealEnvelope, openEnvelope };

@@ -36,7 +36,8 @@ function buildMatcher(q, { regex = false, caseSensitive = false } = {}) {
   if (regex) {
     try {
       const re = new RegExp(q, caseSensitive ? "g" : "gi");
-      return { test: (line) => re.test(line), re };
+      // /g 的 test 会推进 lastIndex，跨行复用必须每次归零，否则漏配
+      return { test: (line) => { re.lastIndex = 0; return re.test(line); }, re };
     } catch { return null; }
   }
   const needle = caseSensitive ? q : q.toLowerCase();
@@ -84,7 +85,9 @@ async function replaceAll(workspace, opts) {
   for await (const rel of walk(workspace.root)) {
     const abs = workspace.safeResolve(rel);
     const text = await fsp.readFile(abs, "utf8").catch(() => null);
-    if (text == null || !re.test(text)) continue;
+    if (text == null) continue;
+    re.lastIndex = 0;
+    if (!re.test(text)) continue;
     re.lastIndex = 0;
     const count = (text.match(re) || []).length;
     const updated = text.replace(re, replacement);
