@@ -1,0 +1,81 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  # ---------- 测试：pylib + 后端 ----------
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: pylib pytest（45+）
+        run: |
+          pip install pytest
+          python -m pytest tests/ -q
+      - name: backend node:test（31）
+        working-directory: backend
+        run: |
+          npm ci --no-fund --no-audit || npm install --no-fund --no-audit
+          npm test
+
+  # ---------- 桌面端三平台绿色 zip ----------
+  desktop:
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, flag: "--win" }
+          - { os: macos-latest, flag: "--mac" }
+          - { os: ubuntu-latest, flag: "--linux" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: 构建前端
+        working-directory: frontend
+        run: |
+          npm ci --no-fund --no-audit || npm install --no-fund --no-audit
+          npm run build
+      - name: 打包桌面端
+        working-directory: desktop
+        env:
+          # root 环境限制仅影响本机，CI 正常
+          ELECTRON_SKIP_NOTARYFORGE: "1"
+        run: |
+          npm ci --no-fund --no-audit || npm install --no-fund --no-audit
+          npx electron-builder ${{ matrix.flag }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeforge-${{ matrix.os }}
+          path: desktop/release/*.zip
+          if-no-files-found: error
+
+  # ---------- 打 tag 自动发 Release ----------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: desktop
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true
