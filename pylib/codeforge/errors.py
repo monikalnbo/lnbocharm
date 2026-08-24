@@ -22,16 +22,24 @@ def _load() -> Dict[str, dict]:
 
 
 class CodeForgeError(Exception):
-    """带错误码的异常：message/hint 来自注册表，可覆盖补充。"""
+    """带错误码的异常：message/hint 来自注册表，可覆盖补充；details 用于插槽渲染。"""
 
     def __init__(self, code: str, message: str = "", hint: str = "",
                  details: Optional[dict] = None) -> None:
         meta = _load().get(code, {})
         self.code = code
+        self.details = details or {}
         self.message = message or meta.get("message", code)
         self.hint = hint or meta.get("hint", "")
+        # 参数化插槽渲染：{toolchain}/{install}/{client_ver} 等
+        if self.details:
+            for field in ("message", "hint"):
+                try:
+                    setattr(self, field,
+                            getattr(self, field).format(**self.details))
+                except (KeyError, IndexError, ValueError):
+                    pass  # 插槽缺失时保留原文，不崩
         self.severity = meta.get("severity", "error")
-        self.details = details or {}
         super().__init__(f"[{code}] {self.message}")
 
     def to_dict(self) -> dict:
