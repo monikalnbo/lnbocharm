@@ -22,6 +22,7 @@
           <option value="light">浅色</option>
         </select>
       </label>
+      <button class="icon" title="设置" @click="settingsOpen = true">⚙ 设置</button>
     </header>
 
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
@@ -36,6 +37,8 @@
 
     <!-- 底部终端（可折叠） -->
     <TerminalView v-if="store.panels.terminal" class="bottom" />
+
+    <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
 
     <!-- 状态栏 -->
     <footer class="statusbar">
@@ -57,8 +60,10 @@ import EditorArea from "./components/EditorArea.vue";
 import BuildPanel from "./components/BuildPanel.vue";
 import ProblemsPanel from "./components/ProblemsPanel.vue";
 import TerminalView from "./components/TerminalView.vue";
+import SettingsPanel from "./components/SettingsPanel.vue";
 
 const treeRef = ref(null);
+const settingsOpen = ref(false);
 
 const bgStyle = computed(() => {
   const bg = store.background;

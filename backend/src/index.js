@@ -79,6 +79,7 @@ app.post("/api/lint", async (req, res) => {
     const result = await worker.request("lint-" + Date.now(), "lint", {
       file: req.body.file, text: req.body.text,
       lang: req.body.lang, options: req.body.options,
+      enabled: req.body.enabled,
     });
     res.json(ok("rest", "lint.result", result));
   } catch (e) {

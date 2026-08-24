@@ -104,9 +104,13 @@ export function renderBreakpoints() {
 export async function runLint(path) {
   const model = getModelByPath(path);
   if (!model) return;
+  const opts = store.lintOptions || {};
+  const enabled = Object.entries(opts)
+    .filter(([, v]) => v?.enabled !== false)
+    .map(([k]) => k);   // 未勾选的检查器不执行
   try {
     const { diagnostics } = await api.lint(path, model.getValue(),
-                                          model.getLanguageId());
+      model.getLanguageId(), { options: opts, enabled });
     const markers = diagnostics.map((d) => ({
       severity: d.severity === "error" ? monacoApi.MarkerSeverity.Error
               : d.severity === "warning" ? monacoApi.MarkerSeverity.Warning

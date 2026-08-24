@@ -81,7 +81,8 @@ class Worker:
         engine = self._ensure_lint_engine(args.get("plugin_dirs"))
         diags = engine.run(args["file"], args.get("text", ""),
                            language=args.get("lang"),
-                           options=args.get("options"))
+                           options=args.get("options"),
+                           enabled=args.get("enabled"))
         return {"diagnostics": [d.to_dict() for d in diags]}
 
     def op_plan(self, args: dict) -> dict:

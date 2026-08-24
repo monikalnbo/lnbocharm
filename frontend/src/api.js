@@ -29,9 +29,9 @@ export const api = {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: p }),
   }),
-  lint: (file, text, lang) => jfetch("/api/lint", {
+  lint: (file, text, lang, extra = {}) => jfetch("/api/lint", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file, text, lang }),
+    body: JSON.stringify({ file, text, lang, ...extra }),
   }),
 };
