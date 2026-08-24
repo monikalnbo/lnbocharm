@@ -39,6 +39,7 @@
       <aside v-if="store.panels.right" class="dock-right">
         <BuildPanel />
         <ProblemsPanel />
+        <LogPanel />
       </aside>
     </div>
 
@@ -69,6 +70,7 @@ import ProblemsPanel from "./components/ProblemsPanel.vue";
 import TerminalView from "./components/TerminalView.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import BrowserPanel from "./components/BrowserPanel.vue";
+import LogPanel from "./components/LogPanel.vue";
 
 const treeRef = ref(null);
 const settingsOpen = ref(false);

@@ -29,9 +29,20 @@ export const api = {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: p }),
   }),
+  logs: (limit = 300, level = "", source = "") =>
+    jfetch(`/api/logs?limit=${limit}&level=${level}&source=${source}`),
+  reportAction: (event, target, args) => fetch("/api/logs/action", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, target, args }),
+  }).catch(() => {}),   // 埋点失败静默
   lint: (file, text, lang, extra = {}) => jfetch("/api/lint", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file, text, lang, ...extra }),
   }),
 };
+
+/// UI 操作埋点：每次关键点击都落日志（任务 #32），fire-and-forget
+export function track(event, target, args) {
+  api.reportAction(event, target, args);
+}

@@ -23,6 +23,7 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "../api.js";
 import { store } from "../store.js";
 import { openFile } from "../editor.js";
+import { track } from "../api.js";
 
 const raw = ref([]);
 const collapsed = ref(new Set());
@@ -53,6 +54,7 @@ function toggle(node) {
 async function open(path) { await openFile(path); }
 
 async function onCreate() {
+  track("file.create_click");
   const p = prompt("新文件路径（如 src/main.py）：");
   if (!p) return;
   await api.create(p, false).catch((e) => alert(e.cf?.hint || e.message));
@@ -61,6 +63,7 @@ async function onCreate() {
 
 async function onDelete(node) {
   if (!confirm(`删除 ${node.path}？`)) return;
+  track("file.delete", node.path);
   await api.remove(node.path).catch((e) => alert(e.cf?.hint || e.message));
   refresh();
 }

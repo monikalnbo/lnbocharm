@@ -52,6 +52,7 @@
 <script setup>
 import { reactive } from "vue";
 import { store, setTheme, setBackground } from "../store.js";
+import { track } from "../api.js";
 
 const props = defineProps({ open: Boolean });
 const emit = defineEmits(["close"]);
@@ -65,6 +66,7 @@ const saved = JSON.parse(localStorage.getItem("cf.settings") || "{}");
 const s = reactive({ ...DEFAULTS, ...saved });
 
 function save() {
+  track("settings.save");
   localStorage.setItem("cf.settings", JSON.stringify(s));
   store.lintOptions = {
     line_length: { max: s.maxLineLength },

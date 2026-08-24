@@ -13,12 +13,24 @@ const { BuildExecutor } = require("./services/executor");
 const { TerminalService } = require("./services/terminal");
 const { LspManager } = require("./services/lsp");
 const { attachRelay } = require("./services/relay");
+const logger = require("./services/logger");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
 
 const app = express();
 app.use(express.json({ limit: "4mb" }));
+// 全链路访问日志（任务 #32）
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on("finish", () => {
+    if (req.path === "/api/health") return;
+    logger.log("info", "http", req.method.toLowerCase(), {
+      path: req.path, status: res.statusCode, ms: Date.now() - t0 });
+  });
+  next();
+});
+logger.initFile(path.join(__dirname, "..", "..", "logs"));
 app.use(express.static(path.join(__dirname, "..", "..", "frontend", "dist")));
 
 const worker = getPyWorker();
@@ -72,6 +84,23 @@ app.post("/api/files/rename", async (req, res) => {
 app.post("/api/files/delete", async (req, res) => {
   try { res.json(ok("rest", "files.delete", await workspace.remove(req.body.path))); }
   catch (e) { const err = e.cfError || makeError("CF1002"); res.status(400).json(fail("rest", "files.delete", err.code)); }
+});
+
+// 日志查询（任务 #33）
+app.get("/api/logs", (req, res) => {
+  res.json(ok("rest", "logs.tail", logger.tail({
+    limit: parseInt(req.query.limit || "300"),
+    level: req.query.level || undefined,
+    source: req.query.source || undefined,
+  })));
+});
+
+// UI 操作埋点上报
+app.post("/api/logs/action", (req, res) => {
+  logger.log("action", "ui", req.body?.event || "unknown", {
+    target: req.body?.target, args: req.body?.args,
+  });
+  res.json(ok("rest", "logs.action", {}));
 });
 
 // Lint（经 pyworker）
@@ -136,6 +165,7 @@ wss.on("connection", (socket, req) => {
       if (!hs.ok) { socket.close(4001, hs.reason); return; }
       handshaken = true;
       clearTimeout(kick);
+      logger.log("info", "ws", "hello", { client: hs.client, version: hs.version });
       socket.send(JSON.stringify(ok(msg.id, "hello.ok",
         { server: "codeforge", protocol: msg.v, client: hs.client, version: hs.version })));
       return;
@@ -149,6 +179,7 @@ wss.on("connection", (socket, req) => {
         // plan → 执行 → 流式输出。服务器原生模式（local/docker 模式由桌面端/容器层接入）
         const p = msg.payload || {};
         const outDir = "/tmp/cf-build/" + (msg.id || String(Date.now()));
+        logger.log("info", "build", "start", { id: msg.id, file: p.file, mode: "server" });
         worker.request(msg.id + ":plan", "plan", {
           file: p.file, out_dir: outDir, run_args: p.runArgs,
         }).then((plan) => {
@@ -160,8 +191,11 @@ wss.on("connection", (socket, req) => {
               ok(msg.id, "build.output", { chunk, stream: "stdout" }))),
           });
         }).then((result) => {
-          if (result !== undefined)
+          if (result !== undefined) {
+            logger.log(result.ok ? "info" : "error", "build", "done",
+              { id: msg.id, ok: result.ok, ms: result.durationMs });
             socket.send(JSON.stringify(ok(msg.id, "build.result", result)));
+          }
         }).catch((e) => {
           const err = e.cfError || makeError("CF2001", {}, { message: e.message });
           // 编译失败带 exitCode 的普通错误：走 result 而非 error
@@ -188,6 +222,7 @@ wss.on("connection", (socket, req) => {
             onExit: (code, sessionId) => socket.send(JSON.stringify(
               ok(msg.id, "term.exit", { sessionId, exitCode: code }))),
           });
+          logger.log("info", "terminal", "create", { sessionId: id });
           socket.send(JSON.stringify(ok(msg.id, "term.created", { sessionId: id })));
         } catch (e) {
           const err = e.cfError || makeError("CF6001");

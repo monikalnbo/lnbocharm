@@ -1,7 +1,7 @@
 /// 编辑器核心：单实例 Monaco + 多标签 model 切换 + 断点 + lint 触发
 import * as monaco from "./monaco.js";
 const monacoApi = monaco;
-import { api } from "./api.js";
+import { api, track } from "./api.js";
 import { store, toggleBreakpoint } from "./store.js";
 import { openModel, ensureLsp, languageOf, fileUri } from "./monaco.js";
 
@@ -43,6 +43,7 @@ export function mountEditor(container) {
 }
 
 export async function openFile(path) {
+  track("file.open", path);
   await ensureLsp(languageOf(path) || "");
   const model = await openModel(path);
   if (!store.tabs.find((t) => t.path === path)) store.tabs.push({ path, language: model.getLanguageId(), model });
