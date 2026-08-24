@@ -2,7 +2,7 @@
 /// - 加载前端（开发: VITE_DEV_URL / 生产: ../../frontend/dist）
 /// - IPC: 本机构建（codeforge-py plan → 子进程 argv 数组执行，禁 shell 防注入）
 /// - 安全基线(#26)：contextIsolation 开、nodeIntegration 关、渲染层仅经 preload 桥
-const { app, BrowserWindow, ipcMain, dialog, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, session, Menu } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
@@ -18,6 +18,84 @@ const MAX_TAIL = 512 * 1024;
 
 let win = null;
 
+// 单实例锁：重复启动时聚焦已有窗口
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) { app.quit(); }
+
+app.setName("CodeForge");
+
+/// 自定义应用菜单（替换 Electron 默认英文开发菜单）
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const template = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: "about", label: "关于 CodeForge" },
+        { type: "separator" },
+        { role: "hide", label: "隐藏 CodeForge" },
+        { role: "unhide", label: "全部显示" },
+        { type: "separator" },
+        { role: "quit", label: "退出 CodeForge" },
+      ],
+    }] : []),
+    {
+      label: "文件",
+      submenu: [
+        { label: "打开工作区文件夹…", accelerator: "CmdOrCtrl+O",
+          click: () => ipcMain.emit("menu:openFolder") },
+        ...(isMac ? [] : [{ type: "separator" }, { role: "quit", label: "退出" }]),
+      ],
+    },
+    {
+      label: "编辑",
+      submenu: [   // 保留系统角色以支持输入框快捷键
+        { role: "undo", label: "撤销" },
+        { role: "redo", label: "重做" },
+        { type: "separator" },
+        { role: "cut", label: "剪切" },
+        { role: "copy", label: "复制" },
+        { role: "paste", label: "粘贴" },
+        { role: "selectAll", label: "全选" },
+      ],
+    },
+    {
+      label: "视图",
+      submenu: [
+        { role: "reload", label: "重新加载" },
+        { role: "forceReload", label: "强制重新加载" },
+        { type: "separator" },
+        { role: "resetZoom", label: "实际大小" },
+        { role: "zoomIn", label: "放大" },
+        { role: "zoomOut", label: "缩小" },
+        { type: "separator" },
+        { role: "togglefullscreen", label: "全屏" },
+      ],
+    },
+    {
+      label: "窗口",
+      submenu: [
+        { role: "minimize", label: "最小化" },
+        { role: "zoom", label: "缩放" },
+        ...(isMac ? [{ type: "separator" }, { role: "front", label: "前置全部" }] :
+                    [{ role: "close", label: "关闭窗口" }]),
+      ],
+    },
+    {
+      label: "帮助",
+      submenu: [
+        { label: "关于 CodeForge",
+          click: () => dialog.showMessageBox(win, {
+            type: "info", title: "关于",
+            message: `CodeForge v${app.getVersion()}`,
+            detail: "多语言桌面 IDE 编译器\nhttps://github.com/monikalnbo/lnbocharm",
+          }) },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1440,
@@ -30,11 +108,14 @@ function createWindow() {
       webviewTag: true,        // 内嵌浏览器（Chromium 内核，任务#22）
     },
   });
+  win.setTitle("CodeForge");
   if (process.env.VITE_DEV_URL) win.loadURL(process.env.VITE_DEV_URL);
   else win.loadFile(DIST_INDEX);
 }
 
 app.whenReady().then(() => {
+  if (!gotLock) return;
+  buildAppMenu();
   // 加速器随应用自启：本地代理 + 内嵌浏览器 session 绑定
   const relay = readRelayUrl();
   const st = startAccelerator({ relayUrl: relay, port: 7788 });
@@ -43,6 +124,10 @@ app.whenReady().then(() => {
     .catch(() => {});
   createWindow();
 });
+app.on("second-instance", () => {
+  if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+});
+
 app.on("window-all-closed", () => app.quit());
 
 function readRelayUrl() {

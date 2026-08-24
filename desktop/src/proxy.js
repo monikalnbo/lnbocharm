@@ -66,6 +66,8 @@ function configure(opts = {}) {
 
 function getStatus() { return { ...status, relayUrl, fingerprint: deviceFingerprint }; }
 
+function setStatus(patch) { Object.assign(status, patch); }   // ← 修复：缺失定义导致启动即崩
+
 /// CONNECT 隧道：clientSocket ⇄ /relay WS ⇄ 目标 TCP
 function pipeConnect(clientSocket, host, port, head) {
   const WebSocket = require("ws");

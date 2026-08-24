@@ -2,14 +2,18 @@
   "name": "codeforge-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "CodeForge 桌面壳：加载 IDE 前端，提供本机构建/本地终端 IPC",
+  "description": "CodeForge \u684c\u9762\u58f3\uff1a\u52a0\u8f7d IDE \u524d\u7aef\uff0c\u63d0\u4f9b\u672c\u673a\u6784\u5efa/\u672c\u5730\u7ec8\u7aef IPC",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "test": "node --test test/*.test.js"
   },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
   }
 }

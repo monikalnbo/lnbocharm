@@ -2,7 +2,7 @@
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { api } from "./api.js";
-import { wsRequest, on as wsOn } from "./ws.js";
+import { wsRequest, wsNotify, on as wsOn } from "./ws.js";
 import { store } from "./store.js";
 
 // ---------- workers ----------
@@ -59,7 +59,7 @@ export async function openModel(path) {
     model = monaco.editor.createModel(text, lang, monaco.Uri.parse(fileUri(path)));
     model.updateOptions({ tabSize: store.registry[lang]?.indent || 4 });
     // didOpen → LSP
-    wsNotifySafe(lang, "textDocument/didOpen", {
+    wsNotify(lang, "textDocument/didOpen", {
       textDocument: { uri: fileUri(path), languageId: lang, version: 1, text },
     });
   }
