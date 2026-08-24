@@ -1,0 +1,24 @@
+# CodeForge 桌面端打包：绿色便携 zip，解压即用（任务 #38）
+appId: com.lnbo.codeforge
+productName: CodeForge
+directories:
+  output: release
+files:
+  - src/**/*
+  - preload.js
+extraResources:
+  # 前端产物与 pylib 引擎随包分发
+  - from: ../frontend/dist
+    to: frontend-dist
+  - from: ../pylib
+    to: pylib
+  - from: ../shared
+    to: shared
+
+win:
+  target: [{ target: zip, arch: [x64] }]
+linux:
+  target: [{ target: zip, arch: [x64] }]
+  category: Development
+mac:
+  target: [{ target: zip, arch: [x64, arm64] }]
