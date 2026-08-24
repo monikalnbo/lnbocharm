@@ -24,76 +24,24 @@ if (!gotLock) { app.quit(); }
 
 app.setName("CodeForge");
 
-/// 自定义应用菜单（替换 Electron 默认英文开发菜单）
+/// 极简菜单：Windows/Linux 无菜单栏（功能全部在应用内）；macOS 保留系统必需项
 function buildAppMenu() {
-  const isMac = process.platform === "darwin";
-  const template = [
-    ...(isMac ? [{
-      label: app.name,
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: app.name,
       submenu: [
         { role: "about", label: "关于 CodeForge" },
         { type: "separator" },
         { role: "hide", label: "隐藏 CodeForge" },
-        { role: "unhide", label: "全部显示" },
         { type: "separator" },
         { role: "quit", label: "退出 CodeForge" },
-      ],
-    }] : []),
-    {
-      label: "文件",
-      submenu: [
-        { label: "打开工作区文件夹…", accelerator: "CmdOrCtrl+O",
-          click: () => ipcMain.emit("menu:openFolder") },
-        ...(isMac ? [] : [{ type: "separator" }, { role: "quit", label: "退出" }]),
-      ],
-    },
-    {
-      label: "编辑",
-      submenu: [   // 保留系统角色以支持输入框快捷键
-        { role: "undo", label: "撤销" },
-        { role: "redo", label: "重做" },
-        { type: "separator" },
-        { role: "cut", label: "剪切" },
-        { role: "copy", label: "复制" },
-        { role: "paste", label: "粘贴" },
-        { role: "selectAll", label: "全选" },
-      ],
-    },
-    {
-      label: "视图",
-      submenu: [
-        { role: "reload", label: "重新加载" },
-        { role: "forceReload", label: "强制重新加载" },
-        { type: "separator" },
-        { role: "resetZoom", label: "实际大小" },
-        { role: "zoomIn", label: "放大" },
-        { role: "zoomOut", label: "缩小" },
-        { type: "separator" },
-        { role: "togglefullscreen", label: "全屏" },
-      ],
-    },
-    {
-      label: "窗口",
-      submenu: [
-        { role: "minimize", label: "最小化" },
-        { role: "zoom", label: "缩放" },
-        ...(isMac ? [{ type: "separator" }, { role: "front", label: "前置全部" }] :
-                    [{ role: "close", label: "关闭窗口" }]),
-      ],
-    },
-    {
-      label: "帮助",
-      submenu: [
-        { label: "关于 CodeForge",
-          click: () => dialog.showMessageBox(win, {
-            type: "info", title: "关于",
-            message: `CodeForge v${app.getVersion()}`,
-            detail: "多语言桌面 IDE 编译器\nhttps://github.com/monikalnbo/lnbocharm",
-          }) },
-      ],
-    },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+      ] },
+    { role: "editMenu", label: "编辑" },
+    { label: "窗口", submenu: [{ role: "minimize", label: "最小化" }, { role: "close", label: "关闭" }] },
+  ]));
 }
 
 function createWindow() {
