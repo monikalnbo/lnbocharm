@@ -16,6 +16,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
 import * as monaco from "../monaco.js";
+import { fileUri } from "../monaco.js";
 import { store } from "../store.js";
 import { revealLine } from "../editor.js";
 
@@ -25,7 +26,7 @@ let timer = null;
 function collect() {
   const out = [];
   for (const t of store.tabs) {
-    const model = monaco.editor.getModel(monaco.Uri.parse("inmemory://workspace/" + t.path));
+    const model = monaco.editor.getModel(monaco.Uri.parse(fileUri(t.path)));
     if (!model) continue;
     for (const m of monaco.editor.getModelMarkers({ resource: model.uri })) {
       out.push({

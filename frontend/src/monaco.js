@@ -44,8 +44,10 @@ export function languageOf(filename) {
   return store.extMap[ext] || null;
 }
 
-function fileUri(path) {
-  return "inmemory://workspace/" + path;
+// 统一 URI 规范化：中文/空格路径经 Uri.parse().toString() 会百分比编码，
+// 若两处写法不同则 getModel 查不到模型。所有读写都走这个函数。
+export function fileUri(path) {
+  return monaco.Uri.parse("inmemory://workspace/" + path).toString();
 }
 
 // ---------- 模型管理（打开文件 → model） ----------
@@ -103,10 +105,14 @@ for (const lang of ["c", "cpp", "csharp", "rust", "python", "java",
           startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
           startColumn: word.startColumn, endColumn: word.endColumn,
         };
+        // LSP CompletionItemKind(1-25) → Monaco CompletionKind
+        const KIND_MAP = { 2:0, 3:1, 4:1, 5:5, 6:6, 7:7, 8:7, 9:8, 10:9,
+                           11:12, 12:12, 13:16, 14:15, 15:6, 16:13, 17:17,
+                           18:18, 19:15, 20:7, 21:10, 22:19, 23:19, 24:20, 25:21 };
         return {
           suggestions: list.map((it) => ({
             label: it.label ?? it.insertText ?? "",
-            kind: (it.kind ?? 1),
+            kind: KIND_MAP[it.kind] ?? 9,
             insertText: it.insertText ?? it.label ?? "",
             detail: it.detail || "LSP",
             range,
@@ -123,9 +129,8 @@ for (const lang of ["c", "cpp", "csharp", "rust", "python", "java",
 export function initLspDiagnostics() {
   wsOn("lsp.notification", ({ language, method, params }) => {
     if (method !== "textDocument/publishDiagnostics") return;
-    const prefix = "inmemory://workspace/";
-    const path = decodeURIComponent((params.uri || "").slice(prefix.length));
-    const model = monaco.editor.getModel(monaco.Uri.parse(prefix + path));
+    // didOpen 时发送的就是规范化后的 model.uri，直接反查
+    const model = monaco.editor.getModel(monaco.Uri.parse(params.uri || ""));
     if (!model) return;
     const markers = (params.diagnostics || []).map((d) => ({
       severity: d.severity === 1 ? monaco.MarkerSeverity.Error

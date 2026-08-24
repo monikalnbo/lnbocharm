@@ -29,6 +29,8 @@ class PyWorker {
     this.proc.stderr.on("data", (c) => console.error("[pyworker:stderr]", c.trim()));
     // spawn 本身失败(ENOENT 等)：不能让它变成 unhandled error 崩掉服务器
     this.proc.on("error", () => { try { this.proc.kill(); } catch (_) {} });
+    // worker 死后写 stdin 会触发 EPIPE：静默吞掉，由 pending 超时/exit 兑现错误
+    this.proc.stdin?.on?.("error", () => {});
     this.proc.on("exit", (code) => this._onExit(code));
     // 健康检查：失败即标记未就绪
     this.ready = false;
@@ -81,7 +83,13 @@ class PyWorker {
         reject(makeError("CF2002", { timeout: timeoutMs / 1000 }));
       }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
-      this.proc.stdin.write(JSON.stringify({ v: 1, id, op, args }) + "\n");
+      try {
+        this.proc.stdin.write(JSON.stringify({ v: 1, id, op, args }) + "\n");
+      } catch (e) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(makeError("CF5003", { reason: `写入失败: ${e.message}` }));
+      }
     });
   }
 

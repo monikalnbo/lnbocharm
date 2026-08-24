@@ -3,7 +3,7 @@ import * as monaco from "./monaco.js";
 const monacoApi = monaco;
 import { api } from "./api.js";
 import { store, toggleBreakpoint } from "./store.js";
-import { openModel, ensureLsp, languageOf } from "./monaco.js";
+import { openModel, ensureLsp, languageOf, fileUri } from "./monaco.js";
 
 let editor = null;
 let decorations = new Map();   // path -> decoration ids
@@ -63,7 +63,7 @@ export function closeTab(path) {
   const idx = store.tabs.findIndex((t) => t.path === path);
   if (idx < 0) return;
   store.tabs.splice(idx, 1);
-  const model = monacoApi.editor.getModel(monacoApi.Uri.parse("inmemory://workspace/" + path));
+  const model = monacoApi.editor.getModel(monacoApi.Uri.parse(fileUri(path)));
   model?.dispose();
   if (store.activePath === path) {
     store.activePath = store.tabs[Math.max(0, idx - 1)]?.path || null;
@@ -73,7 +73,7 @@ export function closeTab(path) {
 }
 
 function getModelByPath(path) {
-  return monacoApi.editor.getModel(monacoApi.Uri.parse("inmemory://workspace/" + path));
+  return monacoApi.editor.getModel(monacoApi.Uri.parse(fileUri(path)));
 }
 
 // ---------- 断点渲染 ----------

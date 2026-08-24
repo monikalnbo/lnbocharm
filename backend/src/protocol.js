@@ -19,12 +19,6 @@ function makeError(code, details = {}, override = {}) {
   let message = override.message || meta.message || code;
   let hint = override.hint || meta.hint || "";
   if (Object.keys(details).length) {
-    for (const f of ["message", "hint"]) {
-      try {
-        if (f === "message" && override.message) continue;
-        if (f === "hint" && override.hint) continue;
-      } catch (_) { /* noop */ }
-    }
     for (const [k, v] of Object.entries(details)) {
       message = message.split(`{${k}}`).join(String(v));
       hint = hint.split(`{${k}}`).join(String(v));
