@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("codeforge", {
 
   /// 加速器状态（随应用自启）
   acceleratorStatus: () => ipcRenderer.invoke("accelerator:status"),
+  deviceFingerprint: () => ipcRenderer.invoke("accelerator:fingerprint"),
 
   /// 应用锁（任务 #35）
   applock: {

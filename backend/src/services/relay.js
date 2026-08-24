@@ -5,8 +5,24 @@
 ///   2. 之后全部为 BINARY 帧 = 原始 TCP 载荷，双向对拷
 ///   3. 任一侧关闭即级联关闭
 const net = require("net");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 const e2e = require("./crypto-channel");
+
+/// 设备指纹白名单：CODEFORGE_RELAY_FPS 环境变量(CSV) 优先，
+/// 否则读 ~/.codeforge/relay-fps.json {"fps":[...]}。均未配置 = 不启用白名单。
+function loadAllowlist() {
+  if (process.env.CODEFORGE_RELAY_FPS) {
+    return process.env.CODEFORGE_RELAY_FPS.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  try {
+    const f = path.join(os.homedir(), ".codeforge", "relay-fps.json");
+    return JSON.parse(fs.readFileSync(f, "utf8")).fps || [];
+  } catch { return []; }
+}
 
 function attachRelay(server) {
   const wss = new WebSocketServer({ noServer: true });
@@ -15,13 +31,24 @@ function attachRelay(server) {
   server.on("upgrade", (req, socket, head) => {
     const { pathname } = new URL(req.url, "http://localhost");
     if (pathname !== "/relay") return;   // /ws 由主 WSS 处理
-    // 隧道鉴权（任务#26）：CODEFORGE_TOKEN 设置时必须 ?token= 匹配
+    // ① token 鉴权（常量时间比较）
     if (process.env.CODEFORGE_RELAY_TOKEN) {
       const token = new URL(req.url, "http://localhost").searchParams.get("token") || "";
       const expect = process.env.CODEFORGE_RELAY_TOKEN;
       const okEq = token.length === expect.length &&
-        require("crypto").timingSafeEqual(Buffer.from(token), Buffer.from(expect));
+        crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expect));
       if (!okEq) { socket.destroy(); return; }
+    }
+
+    // ② 设备指纹白名单：配置了就强制，未列入即拒绝（默认拒绝未知设备）
+    const fps = loadAllowlist();
+    if (fps.length) {
+      const fp = new URL(req.url, "http://localhost").searchParams.get("fp") || "";
+      if (!fps.includes(fp)) {
+        console.error(`[relay] ⛔ 拒绝未知设备指纹: "${fp || "(空)"}" — 将其加入白名单以放行`);
+        socket.destroy();
+        return;
+      }
     }
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });

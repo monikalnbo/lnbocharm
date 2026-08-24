@@ -4,6 +4,7 @@
 /// - 隧道断开自动重连由调用方/前端状态面板感知；连接级失败回 502
 const http = require("http");
 const crypto = require("crypto");
+const fs = require("fs");
 
 // ---- E2E（与服务端 crypto-channel.js 同规格）----
 function genEcdh() {
@@ -31,18 +32,44 @@ function open(key, frame) {
 }
 
 let relayUrl = process.env.CODEFORGE_RELAY || "ws://localhost:8787/relay";
+let deviceFingerprint = "";
+
+/// 稳定设备指纹：首启随机生成并持久化 ~/.codeforge/device-id（32位hex）
+function loadDeviceFingerprint() {
+  const f = require("path").join(require("os").homedir(), ".codeforge", "device-id");
+  try { return fs.readFileSync(f, "utf8").trim(); }
+  catch {
+    const id = crypto.createHash("sha256")
+      .update(require("os").hostname() + require("os").platform() +
+              require("os").arch() + crypto.randomBytes(16).toString("hex"))
+      .digest("hex").slice(0, 32);
+    try {
+      fs.mkdirSync(require("path").dirname(f), { recursive: true });
+      fs.writeFileSync(f, id, { mode: 0o600 });
+    } catch {}
+    return id;
+  }
+}
+
+function buildRelayUrl() {
+  const u = new URL(relayUrl);
+  if (process.env.CODEFORGE_RELAY_TOKEN) u.searchParams.set("token", process.env.CODEFORGE_RELAY_TOKEN);
+  if (deviceFingerprint) u.searchParams.set("fp", deviceFingerprint);
+  return u.toString();
+}
 let status = { running: false, connected: false, port: null, activeConns: 0 };
 
 function configure(opts = {}) {
   if (opts.relayUrl) relayUrl = opts.relayUrl;
+  deviceFingerprint = loadDeviceFingerprint();
 }
 
-function getStatus() { return { ...status, relayUrl }; }
+function getStatus() { return { ...status, relayUrl, fingerprint: deviceFingerprint }; }
 
 /// CONNECT 隧道：clientSocket ⇄ /relay WS ⇄ 目标 TCP
 function pipeConnect(clientSocket, host, port, head) {
   const WebSocket = require("ws");
-  const ws = new WebSocket(relayUrl);
+  const ws = new WebSocket(buildRelayUrl());
   let established = false;
   let key = null;
   const myKeys = genEcdh();

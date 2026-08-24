@@ -137,6 +137,10 @@ function runStep(cmd, cwd, append) {
 ipcMain.handle("workspace:path", () => ensureWorkspace());
 
 ipcMain.handle("accelerator:status", () => getStatus());
+ipcMain.handle("accelerator:fingerprint", () => {
+  const { loadDeviceFingerprint } = require("./proxy");
+  return loadDeviceFingerprint();
+});
 
 // ---------- 应用锁（任务 #35）----------
 ipcMain.handle("applock:state", () => applock.state());
