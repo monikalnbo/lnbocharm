@@ -1,25 +1,25 @@
 <template>
   <div class="panel">
     <div class="panel-head">
-      全局搜索
+      {{ t("search.title") }}
       <button class="icon" :class="{ on: useRegex }" title="正则模式" @click="useRegex = !useRegex">.*</button>
       <button class="icon" :class="{ on: caseSensitive }" title="区分大小写" @click="caseSensitive = !caseSensitive">Aa</button>
     </div>
     <div class="s-body">
-      <input v-model="q" placeholder="搜索工作区…" @keydown.enter="doSearch" />
+      <input v-model="q" :placeholder="t('search.placeholder')" @keydown.enter="doSearch" />
       <div class="row" v-if="replaceMode">
-        <input v-model="replacement" placeholder="替换为…" />
+        <input v-model="replacement" :placeholder="t('search.replacePlaceholder')" />
         <button @click="doReplace">全部替换</button>
         <button class="icon" @click="replaceMode = false">✕</button>
       </div>
       <div class="row" v-else>
-        <button @click="doSearch" :disabled="!q">搜索</button>
-        <button @click="replaceMode = true" :disabled="!total">替换…</button>
+        <button @click="doSearch" :disabled="!q">{{ t("search.searchBtn") }}</button>
+        <button @click="replaceMode = true" :disabled="!total">{{ t("search.replaceBtn") }}</button>
       </div>
 
       <div class="summary" v-if="searched">
-        {{ total }} 处匹配 / {{ matches.length }} 个文件
-        <span v-if="lastReplace"> · 替换：{{ lastReplace.total }} 处 / {{ lastReplace.filesChanged }} 文件</span>
+        {{ t("search.summary", { total, files: matches.length }) }}
+        <span v-if="lastReplace">{{ t("search.replacedSummary", { total: lastReplace.total, files: lastReplace.filesChanged }) }}</span>
       </div>
 
       <ul class="results">
@@ -30,7 +30,7 @@
             <span class="ln">{{ l.n }}</span> {{ l.text }}
           </li>
         </template>
-        <li v-if="searched && !total" class="none">无匹配</li>
+        <li v-if="searched && !total" class="none">{{ t("search.noMatch") }}</li>
       </ul>
     </div>
   </div>
@@ -40,9 +40,11 @@
 import { ref } from "vue";
 import { api, track } from "../api.js";
 import { getModelByPathSafe } from "../editor.js";
+import { useI18n } from "vue-i18n";
 
 const emit = defineEmits(["jump"]);
 const q = ref("");
+const { t } = useI18n();
 const replacement = ref("");
 const useRegex = ref(false);
 const caseSensitive = ref(false);

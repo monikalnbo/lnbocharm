@@ -7,7 +7,7 @@
         {{ t.path.split("/").pop() }}
         <span class="close" @click.stop="closeTab(t.path)">✕</span>
       </div>
-      <span v-if="!store.tabs.length" class="empty">打开左侧文件开始编码</span>
+      <span v-if="!store.tabs.length" class="empty">{{ t("editor.empty") }}</span>
     </div>
     <div ref="el" class="monaco-host"></div>
   </div>
@@ -17,7 +17,9 @@
 import { ref, onMounted } from "vue";
 import { store } from "../store.js";
 import { mountEditor, openFile, closeTab } from "../editor.js";
+import { useI18n } from "vue-i18n";
 
 const el = ref(null);
+const { t } = useI18n();
 onMounted(() => mountEditor(el.value));
 </script>

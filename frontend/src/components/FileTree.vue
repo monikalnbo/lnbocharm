@@ -1,9 +1,9 @@
 <template>
   <div class="filetree">
     <div class="ft-head">
-      <span>资源管理器</span>
-      <button class="icon" title="新建文件" @click="onCreate">＋</button>
-      <button class="icon" title="刷新" @click="refresh">⟳</button>
+      <span>{{ t("filetree.title") }}</span>
+      <button class="icon" :title="t('filetree.newFile')" @click="onCreate">＋</button>
+      <button class="icon" :title="t('filetree.refresh')" @click="refresh">⟳</button>
     </div>
     <ul class="ft-list">
       <li v-for="node in flat" :key="node.path"
@@ -24,9 +24,11 @@ import { api } from "../api.js";
 import { store } from "../store.js";
 import { openFile } from "../editor.js";
 import { track } from "../api.js";
+import { useI18n } from "vue-i18n";
 
 const raw = ref([]);
 const collapsed = ref(new Set());
+const { t } = useI18n();
 
 async function refresh() {
   try { raw.value = await api.tree("."); } catch {}
@@ -55,7 +57,7 @@ async function open(path) { await openFile(path); }
 
 async function onCreate() {
   track("file.create_click");
-  const p = prompt("新文件路径（如 src/main.py）：");
+  const p = prompt(t("filetree.newFilePrompt"));
   if (!p) return;
   await api.create(p, false).catch((e) => alert(e.cf?.hint || e.message));
   refresh();

@@ -1,14 +1,14 @@
 <template>
   <div class="panel">
     <div class="panel-head">
-      日志
+      {{ t("logs.title") }}
       <select v-model="level" @change="refresh">
-        <option value="">全部级别</option>
+        <option value="">{{ t("logs.allLevels") }}</option>
         <option value="info">info</option>
         <option value="action">action</option>
         <option value="error">error</option>
       </select>
-      <label class="auto"><input type="checkbox" v-model="auto" /> 自动刷新</label>
+      <label class="auto"><input type="checkbox" v-model="auto" /> {{ t("logs.autoRefresh") }}</label>
       <button class="icon" @click="refresh">⟳</button>
     </div>
     <ul class="logs">
@@ -19,7 +19,7 @@
         <span v-if="l.path" class="dim"> {{ l.path }} {{ l.status ? "(" + l.status + ")" : "" }}</span>
         <span v-else-if="l.file || l.target" class="dim"> {{ l.file || l.target }}</span>
       </li>
-      <li v-if="!lines.length" class="none">暂无日志</li>
+      <li v-if="!lines.length" class="none">{{ t("logs.none") }}</li>
     </ul>
   </div>
 </template>
@@ -27,8 +27,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
 import { api, track } from "../api.js";
+import { useI18n } from "vue-i18n";
 
 const lines = ref([]);
+const { t } = useI18n();
 const level = ref("");
 const auto = ref(true);
 let timer = null;

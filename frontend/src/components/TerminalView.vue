@@ -1,8 +1,8 @@
 <template>
   <div class="panel term-panel">
     <div class="panel-head">
-      终端
-      <button class="icon" @click="createSession">＋</button>
+      {{ t("terminal.title") }}
+      <button class="icon" :title="t('terminal.new')" @click="createSession">＋</button>
       <select v-model="current" @change="attach">
         <option v-for="s in sessions" :key="s" :value="s">{{ s }}</option>
       </select>
@@ -17,8 +17,10 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { wsRequest, wsNotify, on } from "../ws.js";
 import "@xterm/xterm/css/xterm.css";
+import { useI18n } from "vue-i18n";
 
 const host = ref(null);
+const { t } = useI18n();
 const sessions = ref([]);
 const current = ref("");
 let term = null;

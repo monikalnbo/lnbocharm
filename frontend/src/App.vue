@@ -5,7 +5,7 @@
     <header class="topbar">
       <span class="logo">⚒ CodeForge</span>
       <span class="conn" :class="{ on: wsState.connected }">
-        {{ wsState.connected ? "● 已连接" : "○ 连接中" }}
+        {{ wsState.connected ? "● " + t("topbar.connected") : "○ " + t("topbar.connecting") }}
       </span>
       <label>背景
         <select @change="e => setBackground(e.target.value)"
@@ -16,13 +16,18 @@
           <option value="#f5f5f5">浅色</option>
         </select>
       </label>
-      <label>主题
-        <select @change="e => setTheme(e.target.value)" :value="store.theme">
-          <option value="dark">深色</option>
-          <option value="light">浅色</option>
+      <label>{{ t("topbar.theme") }}
+        <select @change="e => { setTheme(e.target.value); }" :value="store.theme">
+          <option value="dark">{{ t("topbar.dark") }}</option>
+          <option value="light">{{ t("topbar.light") }}</option>
         </select>
       </label>
-      <button class="icon" title="设置" @click="settingsOpen = true">⚙ 设置</button>
+      <select @change="e => setLocale(e.target.value)"
+              :value="$i18n.locale">
+        <option value="zh-CN">中文</option>
+        <option value="en">English</option>
+      </select>
+      <button class="icon" :title="t('settings.title')" @click="settingsOpen = true">⚙ {{ t("settings.title") }}</button>
     </header>
 
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
@@ -30,8 +35,8 @@
       <FileTree v-if="store.panels.left" class="dock-left" ref="treeRef" />
       <div class="dock-center center-tabs">
         <div class="center-tabbar">
-          <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">编辑</button>
-          <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">🌐 浏览器</button>
+          <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">{{ t("centerTabs.editor") }}</button>
+          <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">{{ t("centerTabs.browser") }}</button>
         </div>
         <EditorArea v-show="centerView === 'editor'" class="center-body" />
         <BrowserPanel v-if="centerView === 'browser'" class="center-body" />
@@ -52,9 +57,9 @@
     <!-- 状态栏 -->
     <footer class="statusbar">
       <span>{{ store.notice }}</span>
-      <button @click="togglePanel('left')">◧ 文件</button>
-      <button @click="togglePanel('right')">◨ 面板</button>
-      <button @click="togglePanel('terminal')">▭ 终端</button>
+      <button @click="togglePanel('left')">{{ t("statusbar.files") }}</button>
+      <button @click="togglePanel('right')">{{ t("statusbar.panels") }}</button>
+      <button @click="togglePanel('terminal')">{{ t("statusbar.terminal") }}</button>
     </footer>
   </div>
 </template>
@@ -64,6 +69,8 @@ import { computed, onMounted, ref } from "vue";
 import { store, setBackground, setTheme, togglePanel } from "./store.js";
 import { wsState, wsConnect } from "./ws.js";
 import { loadRegistry, initLspDiagnostics } from "./monaco.js";
+import { useI18n } from "vue-i18n";
+import { setLocale } from "./i18n/index.js";
 import { revealLine } from "./editor.js";
 import FileTree from "./components/FileTree.vue";
 import EditorArea from "./components/EditorArea.vue";
@@ -77,6 +84,7 @@ import SearchPanel from "./components/SearchPanel.vue";
 
 const treeRef = ref(null);
 const settingsOpen = ref(false);
+const { t } = useI18n();
 const centerView = ref("editor");
 
 const bgStyle = computed(() => {

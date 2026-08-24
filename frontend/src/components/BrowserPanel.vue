@@ -10,8 +10,7 @@
     </div>
 
     <div v-if="!isDesktop" class="webonly">
-      内嵌浏览器需要桌面应用（Electron Chromium 内核 + 加速器隧道）。<br/>
-      当前为浏览器模式，请运行 desktop 端。
+      {{ t("accel.needsDesktop") }}
     </div>
     <div v-else class="wv-host">
       <webview ref="wv" :src="src" partition="persist:accelerated"
@@ -19,16 +18,18 @@
     </div>
 
     <div class="status">
-      加速器：{{ accel.running ? `已启用 (127.0.0.1:${accel.port})` : "未启用" }}
-      · 活动连接 {{ accel.activeConns || 0 }}
+      {{ accel.running ? t("accel.enabled", { addr: `127.0.0.1:${accel.port}` }) : t("accel.disabled") }}
+      · {{ t("accel.conns", { n: accel.activeConns || 0 }) }}
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useI18n } from "vue-i18n";
 
 const isDesktop = !!window.codeforge;
+const { t } = useI18n();
 const src = ref("https://github.com");
 const addr = ref("https://github.com");
 const wv = ref(null);

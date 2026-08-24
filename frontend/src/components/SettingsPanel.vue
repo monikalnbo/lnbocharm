@@ -2,33 +2,33 @@
   <div v-if="open" class="settings-mask">
     <div class="settings" @keydown.esc="$emit('close')">
       <div class="s-head">
-        <b>设置</b>
+        <b>{{ t("settings.title") }}</b>
         <button class="icon" @click="$emit('close')">✕</button>
       </div>
 
       <section>
-        <h4>构建 / 工具链</h4>
-        <label>额外工具链搜索路径（每行一个，本机/服务器构建通用）</label>
+        <h4>{{ t("settings.buildSection") }}</h4>
+        <label>{{ t("settings.extraPaths") }}</label>
         <textarea rows="3" v-model="s.extraPaths"></textarea>
 
-        <label>构建超时（秒）</label>
+        <label>{{ t("settings.timeout") }}</label>
         <input type="number" v-model.number="s.buildTimeoutSec" min="5" max="600" />
       </section>
 
       <section>
-        <h4>Lint</h4>
-        <label>最大行长 <input type="number" v-model.number="s.maxLineLength" min="40" max="500" style="width:80px" /></label><br/>
-        <label><input type="checkbox" v-model="s.checkSpelling" /> 拼写检查</label><br/>
-        <label><input type="checkbox" v-model="s.checkIndent" /> 缩进检查</label>
-        <label>自定义词典（逗号分隔）</label>
+        <h4>{{ t("settings.lintSection") }}</h4>
+        <label> {{ t("settings.maxLineLength") }} <input type="number" v-model.number="s.maxLineLength" min="40" max="500" style="width:80px" /></label><br/>
+        <label><input type="checkbox" v-model="s.checkSpelling" /> {{ t("settings.spelling") }}</label><br/>
+        <label><input type="checkbox" v-model="s.checkIndent" /> {{ t("settings.indentCheck") }}</label>
+        <label>{{ t("settings.dict") }}</label>
         <input v-model="s.userWords" placeholder="recievebuffer, myapi" />
       </section>
 
       <section>
-        <h4>外观</h4>
-        <label>主题
+        <h4>{{ t("settings.lookSection") }}</h4>
+        <label>{{ t("topbar.theme") }}
           <select :value="store.theme" @change="e => setTheme(e.target.value)">
-            <option value="dark">深色</option><option value="light">浅色</option>
+            <option value="dark">{{ t("topbar.dark") }}</option><option value="light">{{ t("topbar.light") }}</option>
           </select>
         </label>
         <label>背景板
@@ -42,8 +42,8 @@
       </section>
 
       <footer>
-        <button @click="save">保存</button>
-        <span class="hint">保存在浏览器本地；桌面端后续迁移到加密存储</span>
+        <button @click="save">{{ t("settings.save") }}</button>
+        <span class="hint">{{ t("settings.savedNote") }}</span>
       </footer>
     </div>
   </div>
@@ -53,6 +53,7 @@
 import { reactive } from "vue";
 import { store, setTheme, setBackground } from "../store.js";
 import { track } from "../api.js";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps({ open: Boolean });
 const emit = defineEmits(["close"]);
@@ -64,6 +65,7 @@ const DEFAULTS = {
 };
 const saved = JSON.parse(localStorage.getItem("cf.settings") || "{}");
 const s = reactive({ ...DEFAULTS, ...saved });
+const { t } = useI18n();
 
 function save() {
   track("settings.save");

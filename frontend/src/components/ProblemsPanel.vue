@@ -1,6 +1,6 @@
 <template>
   <div class="panel">
-    <div class="panel-head">问题 <span class="count">{{ markers.length }}</span></div>
+    <div class="panel-head">{{ t("problems.title") }} <span class="count">{{ markers.length }}</span></div>
     <ul class="problems">
       <li v-for="(m, i) in markers" :key="i"
           :class="m.sev.toLowerCase()"
@@ -8,7 +8,7 @@
         <b>{{ m.sev }}</b> [{{ m.source }}] {{ m.path }}:{{ m.startLineNumber }}
         — {{ m.message }}
       </li>
-      <li v-if="!markers.length" class="none">无问题 ✓（保存后自动检查缩进/拼写）</li>
+      <li v-if="!markers.length" class="none">{{ t("problems.none") }}</li>
     </ul>
   </div>
 </template>
@@ -19,8 +19,10 @@ import * as monaco from "../monaco.js";
 import { fileUri } from "../monaco.js";
 import { store } from "../store.js";
 import { revealLine } from "../editor.js";
+import { useI18n } from "vue-i18n";
 
 const markers = ref([]);
+const { t } = useI18n();
 let timer = null;
 
 function collect() {

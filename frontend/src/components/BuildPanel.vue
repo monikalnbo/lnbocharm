@@ -1,29 +1,29 @@
 <template>
   <div class="panel">
     <div class="panel-head">
-      构建
+      {{ t("build.title") }}
       <select v-model="store.buildMode" @change="setBuildMode(store.buildMode)">
-        <option value="server">服务器构建</option>
-        <option value="local">本机构建（桌面端）</option>
-        <option value="docker">Docker 构建</option>
+        <option value="server">{{ t("build.modes.server") }}</option>
+        <option value="local">{{ t("build.modes.local") }}</option>
+        <option value="docker">{{ t("build.modes.docker") }}</option>
       </select>
       <button :disabled="store.buildRunning || !store.activePath" @click="run">
-        ▶ 运行
+        {{ t("build.run") }}
       </button>
     </div>
     <pre v-if="notice" class="notice">{{ notice }}</pre>
     <details class="history">
-      <summary>构建历史（{{ history.length }}）</summary>
+      <summary>{{ t("build.history", { n: history.length }) }}</summary>
       <ul>
         <li v-for="(h, i) in history" :key="i">
           <span :class="h.ok ? 'ok' : 'bad'">{{ h.ok ? '✓' : '✗' }}</span>
           {{ new Date(h.ts).toLocaleTimeString() }} · {{ h.mode }} · {{ h.file.split('/').pop() }} · {{ h.ms }}ms
-          <button class="icon" title="查看输出" @click="viewHistory(h)">👁</button>
-          <button class="icon" title="重跑" @click="rerun(h)">↻</button>
+          <button class="icon" :title="t('build.viewOutput')" @click="viewHistory(h)">👁</button>
+          <button class="icon" :title="t('build.rerun')" @click="rerun(h)">↻</button>
         </li>
       </ul>
     </details>
-    <pre ref="out" class="build-out">{{ store.buildOutput || "选择构建模式，打开文件后点击运行" }}</pre>
+    <pre ref="out" class="build-out">{{ store.buildOutput || t("build.emptyHint") }}</pre>
   </div>
 </template>
 
@@ -32,8 +32,10 @@ import { ref, computed, watch, nextTick } from "vue";
 import { store, setBuildMode } from "../store.js";
 import { wsRequest, wsNotify, on } from "../ws.js";
 import { track } from "../api.js";
+import { useI18n } from "vue-i18n";
 
 const out = ref(null);
+const { t } = useI18n();
 const notice = ref("");
 const history = ref([]);
 const _histFile = ref("");
@@ -95,7 +97,7 @@ async function run() {
   if (store.buildMode === "local") {
     // 本机构建走 Electron IPC；纯网页环境给出明确提示
     if (!isElectron || !window.codeforge?.localBuild) {
-      notice.value = "本机构建需要在桌面应用中运行；当前为浏览器模式，已切换为服务器构建。";
+      notice.value = t("build.localNeedsDesktop");
       store.buildMode = "server";
     } else {
       store.buildRunning = true;
@@ -112,7 +114,7 @@ async function run() {
     return;
   }
   if (store.buildMode === "docker") {
-    notice.value = "Docker 构建模式需要服务器端工具链容器池（docker-compose up），当前先用服务器模式。";
+    notice.value = t("build.dockerNeedsCompose");
     store.buildMode = "server";
     return;
   }
