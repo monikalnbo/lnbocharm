@@ -41,9 +41,10 @@ class CodeForgeError(Exception):
 
 
 def cf_error(code: str, message: str = "", hint: str = "") -> None:
-    """记录/抛出一个错误码事件（当前实现：打印到 stderr 日志流，不中断调用方）。"""
+    """记录/抛出一个错误码事件（stderr，避免污染 serve 模式的 stdout 协议流）。"""
+    import sys
     err = CodeForgeError(code, message, hint)
-    print(f"LOG {err.to_dict()}", flush=True)
+    print(f"LOG {err.to_dict()}", file=sys.stderr, flush=True)
 
 
 def get_meta(code: str) -> dict:

@@ -14,6 +14,7 @@
     "CF3002": { "severity": "error", "category": "lint", "message": "缩进层级错误", "hint": "此行的缩进量不符合语法要求的层级关系" },
     "CF3003": { "severity": "info", "category": "lint", "message": "疑似拼写错误", "hint": "检查单词拼写；如为专有名词可加入自定义词典" },
     "CF3004": { "severity": "info", "category": "lint", "message": "行超长", "hint": "超过设置的最大行长，建议拆分表达式或换行" },
+    "CF3005": { "severity": "info", "category": "lint", "message": "行尾空白", "hint": "删除行尾多余空格；可在设置中开启保存时自动清理" },
     "CF4001": { "severity": "warning", "category": "debug", "message": "断点未绑定", "hint": "目标程序缺少调试符号：C/C++ 编译请加 -g，Rust 用 debug profile" },
     "CF4002": { "severity": "error", "category": "debug", "message": "调试适配器不可用", "hint": "该语言的调试后端未安装，请在设置中配置适配器路径" },
     "CF5001": { "severity": "warning", "category": "agent", "message": "本地 Agent 未连接", "hint": "本机构建需要桌面端处于运行状态并已打开项目" },

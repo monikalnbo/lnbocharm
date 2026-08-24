@@ -29,11 +29,12 @@ class IndentationChecker(Checker):
                     f"第 {idx} 行缩进混用了空格与 Tab",
                     hint="统一改为空格缩进；可在设置中开启保存时自动转换"))
             if line != line.rstrip():
-                col = len(line.rstrip()) + 1
+                tw_col = len(line.rstrip()) + 1
                 diags.append(make_diagnostic(
-                    self, filename, idx, col, "info",
+                    self, filename, idx, tw_col, "info",
                     f"第 {idx} 行行尾有多余空白",
-                    hint="删除行尾空格；可开启保存时自动清理"))
+                    hint="删除行尾空格；可开启保存时自动清理",
+                    rule="CF3005"))
 
         if language == "python":
             diags.extend(self._python_indent_errors(filename, text))

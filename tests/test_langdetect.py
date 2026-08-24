@@ -76,3 +76,16 @@ def test_export_registry_snapshot():
         assert lang in data
         assert all(k in data[lang] for k in ("ext", "monacoId", "builder",
                                              "comment", "indent", "debugAdapter"))
+
+
+# ---------- TypeScript / JavaScript 内置环境 ----------
+
+def test_typescript_detection():
+    info = detect_language("app.ts")
+    assert info["name"] == "typescript" and info["monacoId"] == "typescript"
+    assert detect_language("server.mjs")["name"] == "javascript"
+
+
+def test_ts_js_share_builder():
+    reg = get_registry()
+    assert reg.get("typescript").builder == reg.get("javascript").builder == "typescript"

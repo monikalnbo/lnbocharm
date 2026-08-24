@@ -159,3 +159,18 @@ def test_error_codes_registry_complete():
     assert meta["severity"] == "error" and meta["hint"]
     unknown = CodeForgeError("CF9999").to_dict()
     assert unknown["message"] == "CF9999"   # 未知码降级不崩
+
+
+# ---------- CF3005 行尾空白（回归：不得再误报为 CF3001） ----------
+
+def test_trailing_whitespace_uses_dedicated_code(engine):
+    ds = engine.run("b.js", "let a = 1;   \n", language="javascript")
+    tw = [d for d in ds if d.rule == "CF3005"]
+    assert tw and tw[0].severity == "info"
+    assert not [d for d in ds if d.rule == "CF3001"]
+
+
+def test_trailing_whitespace_independent_of_mixed_indent(engine):
+    # 纯空格缩进 + 行尾空白：只有 CF3005，没有 CF3001
+    ds = engine.run("x.py", "def f():\n    return 1    \n", language="python")
+    assert [d.rule for d in ds] == ["CF3005"]

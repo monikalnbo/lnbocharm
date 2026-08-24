@@ -66,6 +66,25 @@ BUILTIN_LANGUAGES: Dict[str, dict] = {
         "debugAdapter": "jdwp",
         "toolchain": ["javac"],
     },
+    "typescript": {
+        # Node 运行时随桌面端内置（Electron 同款），tsc 由工具链包管理器按需装到 tools/
+        "ext": [".ts", ".mts", ".cts"],
+        "monacoId": "typescript",
+        "builder": "typescript",
+        "comment": "//",
+        "indent": 2,
+        "debugAdapter": "node-dap (js-debug)",
+        "toolchain": ["node", "tsc"],
+    },
+    "javascript": {
+        "ext": [".js", ".mjs", ".cjs"],
+        "monacoId": "javascript",
+        "builder": "typescript",   # 复用 node 构建器：直接运行
+        "comment": "//",
+        "indent": 2,
+        "debugAdapter": "node-dap (js-debug)",
+        "toolchain": ["node"],
+    },
 }
 
 # .h 归属歧义：默认给 C，但若同目录存在 cpp 工程文件则归 C++（detect 时处理）
