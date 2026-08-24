@@ -29,6 +29,15 @@ export const api = {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: p }),
   }),
+  search: (opts) => jfetch("/api/search", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  }),
+  searchReplace: (opts) => jfetch("/api/search/replace", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  }),
+  reloadModel: (p) => jfetch("/api/files/read?path=" + encodeURIComponent(p)),
   logs: (limit = 300, level = "", source = "") =>
     jfetch(`/api/logs?limit=${limit}&level=${level}&source=${source}`),
   reportAction: (event, target, args) => fetch("/api/logs/action", {

@@ -77,6 +77,10 @@ function getModelByPath(path) {
   return monacoApi.editor.getModel(monacoApi.Uri.parse(fileUri(path)));
 }
 
+export function getModelByPathSafe(path) {
+  try { return getModelByPath(path); } catch { return null; }
+}
+
 // ---------- 断点渲染 ----------
 export function renderBreakpoints() {
   if (!editor) return;

@@ -14,6 +14,7 @@ const { TerminalService } = require("./services/terminal");
 const { LspManager } = require("./services/lsp");
 const { attachRelay } = require("./services/relay");
 const logger = require("./services/logger");
+const { search, replaceAll } = require("./services/search");
 
 const PORT = process.env.PORT || 8787;
 const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "workspace-demo");
@@ -84,6 +85,19 @@ app.post("/api/files/rename", async (req, res) => {
 app.post("/api/files/delete", async (req, res) => {
   try { res.json(ok("rest", "files.delete", await workspace.remove(req.body.path))); }
   catch (e) { const err = e.cfError || makeError("CF1002"); res.status(400).json(fail("rest", "files.delete", err.code)); }
+});
+
+// 全局搜索与替换（任务 #27）
+app.post("/api/search", async (req, res) => {
+  try {
+    res.json(ok("rest", "search.result", await search(workspace, req.body || {})));
+  } catch (e) { res.status(400).json(fail("rest", "search.result", "CF1002")); }
+});
+
+app.post("/api/search/replace", async (req, res) => {
+  try {
+    res.json(ok("rest", "search.replaced", await replaceAll(workspace, req.body || {})));
+  } catch (e) { res.status(400).json(fail("rest", "search.replaced", "CF1002")); }
 });
 
 // 日志查询（任务 #33）

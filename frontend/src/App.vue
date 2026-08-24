@@ -37,6 +37,7 @@
         <BrowserPanel v-if="centerView === 'browser'" class="center-body" />
       </div>
       <aside v-if="store.panels.right" class="dock-right">
+        <SearchPanel @jump="(m) => revealLine(m.path, m.line)" />
         <BuildPanel />
         <ProblemsPanel />
         <LogPanel />
@@ -63,6 +64,7 @@ import { computed, onMounted, ref } from "vue";
 import { store, setBackground, setTheme, togglePanel } from "./store.js";
 import { wsState, wsConnect } from "./ws.js";
 import { loadRegistry, initLspDiagnostics } from "./monaco.js";
+import { revealLine } from "./editor.js";
 import FileTree from "./components/FileTree.vue";
 import EditorArea from "./components/EditorArea.vue";
 import BuildPanel from "./components/BuildPanel.vue";
@@ -71,6 +73,7 @@ import TerminalView from "./components/TerminalView.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import BrowserPanel from "./components/BrowserPanel.vue";
 import LogPanel from "./components/LogPanel.vue";
+import SearchPanel from "./components/SearchPanel.vue";
 
 const treeRef = ref(null);
 const settingsOpen = ref(false);
