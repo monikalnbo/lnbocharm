@@ -3,6 +3,32 @@
 /// - 每个连接开一条 /relay WS 隧道：控制帧(目标地址) → 双向二进制对拷
 /// - 隧道断开自动重连由调用方/前端状态面板感知；连接级失败回 502
 const http = require("http");
+const crypto = require("crypto");
+
+// ---- E2E（与服务端 crypto-channel.js 同规格）----
+function genEcdh() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  return {
+    publicBase64: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
+    privateKey,
+  };
+}
+function deriveKey(privateKey, peerB64) {
+  const peer = crypto.createPublicKey({ key: Buffer.from(peerB64, "base64"), format: "der", type: "spki" });
+  const secret = crypto.diffieHellman({ privateKey, publicKey: peer });
+  return crypto.createHash("sha256").update(secret).digest();
+}
+function seal(key, buf) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv("aes-256-gcm", key, iv);
+  return Buffer.concat([iv, c.update(buf), c.final(), c.getAuthTag()]);
+}
+function open(key, frame) {
+  const b = Buffer.from(frame);
+  const d = crypto.createDecipheriv("aes-256-gcm", key, b.subarray(0, 12), { authTagLength: 16 });
+  d.setAuthTag(b.subarray(b.length - 16));
+  return Buffer.concat([d.update(b.subarray(12, b.length - 16)), d.final()]);
+}
 
 let relayUrl = process.env.CODEFORGE_RELAY || "ws://localhost:8787/relay";
 let status = { running: false, connected: false, port: null, activeConns: 0 };
@@ -18,6 +44,8 @@ function pipeConnect(clientSocket, host, port, head) {
   const WebSocket = require("ws");
   const ws = new WebSocket(relayUrl);
   let established = false;
+  let key = null;
+  const myKeys = genEcdh();
 
   const fail = () => {
     if (established) { try { clientSocket.destroy(); } catch (_) {} return; }

@@ -13,6 +13,9 @@ const { BuildExecutor } = require("./services/executor");
 const { TerminalService } = require("./services/terminal");
 const { LspManager } = require("./services/lsp");
 const { attachRelay } = require("./services/relay");
+const e2e = require("./services/crypto-channel");
+const E2E_REQUIRED = process.env.CODEFORGE_E2E === "1";
+const WS_TOKEN = process.env.CODEFORGE_TOKEN || "";
 const logger = require("./services/logger");
 const { search, replaceAll } = require("./services/search");
 
@@ -158,6 +161,11 @@ server.on("upgrade", (req, socket, head) => {
   // /relay 已由 attachRelay 内部处理
 });
 
+function wsSend(socket, envelope) {
+  socket.send(JSON.stringify(
+    socket._key ? e2e.sealEnvelope(socket._key, envelope) : envelope));
+}
+
 wss.on("connection", (socket, req) => {
   let handshaken = false;
   const kick = setTimeout(() => socket.close(4000, "handshake timeout"), 10_000);
@@ -165,124 +173,145 @@ wss.on("connection", (socket, req) => {
   // LSP 服务器通知（publishDiagnostics 等）转发到该连接
   lsp.onNotification(({ language, method, params }) => {
     if (socket.readyState === socket.OPEN)
-      socket.send(JSON.stringify(ok("lsp", "lsp.notification", { language, method, params })));
+      wsSend(socket, ok("lsp", "lsp.notification", { language, method, params }));
   });
 
   socket.on("message", (raw, isBinary) => {
-    // 二进制帧：终端/调试通道后续接入
     if (isBinary) return;
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
+    try { msg = socket._key ? e2e.openEnvelope(socket._key, msg) : msg; }
+    catch { socket.close(4006, "decrypt error"); return; }
 
     if (!handshaken) {
       const hs = handshake(msg);
       if (!hs.ok) { socket.close(4001, hs.reason); return; }
+      if (WS_TOKEN && msg.payload?.token !== WS_TOKEN) {
+        logger.log("error", "ws", "auth-failed");
+        socket.close(4003, "bad token"); return;
+      }
+      if (E2E_REQUIRED) {
+        const clientPub = msg.payload?.pub;
+        if (!clientPub) { socket.close(4005, "e2e required"); return; }
+        const serverKeys = e2e.genEcdh();
+        const sessionKey = e2e.deriveKey(serverKeys.privateKey, clientPub);
+        // 握手回执必须明文（客户端还没有会话密钥），公钥在 payload 里传递
+        socket.send(JSON.stringify(ok(msg.id, "hello.ok",
+          { server: "codeforge", protocol: 1, client: hs.client,
+            e2e: { pub: serverKeys.publicBase64 } })));
+        socket._key = sessionKey;   // 之后的所有帧走加密
+        handshaken = true;
+        clearTimeout(kick);
+        logger.log("info", "ws", "hello", { client: hs.client, version: hs.version, e2e: true });
+        return;
+      }
       handshaken = true;
       clearTimeout(kick);
       logger.log("info", "ws", "hello", { client: hs.client, version: hs.version });
-      socket.send(JSON.stringify(ok(msg.id, "hello.ok",
-        { server: "codeforge", protocol: msg.v, client: hs.client, version: hs.version })));
+      wsSend(socket, ok(msg.id, "hello.ok",
+        { server: "codeforge", protocol: msg.v, client: hs.client, version: hs.version }));
       return;
     }
 
     switch (msg.type) {
       case "ping":
-        socket.send(JSON.stringify(ok(msg.id, "pong")));
+        wsSend(socket, ok(msg.id, "pong"));
         break;
+
       case "build.start": {
-        // plan → 执行 → 流式输出。服务器原生模式（local/docker 模式由桌面端/容器层接入）
         const p = msg.payload || {};
         const outDir = "/tmp/cf-build/" + (msg.id || String(Date.now()));
         logger.log("info", "build", "start", { id: msg.id, file: p.file, mode: "server" });
         worker.request(msg.id + ":plan", "plan", {
           file: p.file, out_dir: outDir, run_args: p.runArgs,
         }).then((plan) => {
-          socket.send(JSON.stringify(ok(msg.id, "build.plan", plan)));
+          wsSend(socket, ok(msg.id, "build.plan", plan));
           return executor.execute(String(msg.id), plan, {
             cwd: WORKSPACE,
             timeoutMs: p.timeoutMs,
-            onOutput: (chunk) => socket.send(JSON.stringify(
-              ok(msg.id, "build.output", { chunk, stream: "stdout" }))),
+            onOutput: (chunk) => wsSend(socket, ok(msg.id, "build.output",
+              { chunk, stream: "stdout" })),
           });
         }).then((result) => {
           if (result !== undefined) {
             logger.log(result.ok ? "info" : "error", "build", "done",
               { id: msg.id, ok: result.ok, ms: result.durationMs });
-            socket.send(JSON.stringify(ok(msg.id, "build.result", result)));
+            wsSend(socket, ok(msg.id, "build.result", result));
           }
         }).catch((e) => {
           const err = e.cfError || makeError("CF2001", {}, { message: e.message });
-          // 编译失败带 exitCode 的普通错误：走 result 而非 error
           if (err.code === "CF2001" && typeof e.exitCode === "number") {
-            socket.send(JSON.stringify(ok(msg.id, "build.result",
-              { ok: false, exitCode: e.exitCode, durationMs: 0 })));
+            wsSend(socket, ok(msg.id, "build.result",
+              { ok: false, exitCode: e.exitCode, durationMs: 0 }));
           } else {
-            socket.send(JSON.stringify(fail(msg.id, "build.result", err.code, err.details || {})));
+            wsSend(socket, fail(msg.id, "build.result", err.code, err.details || {}));
           }
         });
         break;
       }
-      case "build.cancel": {
-        socket.send(JSON.stringify(ok(msg.id, "build.cancel",
-          { cancelled: executor.cancel(String(msg.payload?.buildId || msg.id)) })));
+
+      case "build.cancel":
+        wsSend(socket, ok(msg.id, "build.cancel",
+          { cancelled: executor.cancel(String(msg.payload?.buildId || msg.id)) }));
         break;
-      }
+
       case "term.create": {
         try {
           const { id } = terminals.create({
             cols: msg.payload?.cols, rows: msg.payload?.rows,
-            onOutput: (chunk, sessionId) => socket.send(JSON.stringify(
-              ok(msg.id, "term.output", { sessionId, chunk }))),
-            onExit: (code, sessionId) => socket.send(JSON.stringify(
-              ok(msg.id, "term.exit", { sessionId, exitCode: code }))),
+            onOutput: (chunk, sessionId) => wsSend(socket, ok(msg.id, "term.output",
+              { sessionId, chunk })),
+            onExit: (code, sessionId) => wsSend(socket, ok(msg.id, "term.exit",
+              { sessionId, exitCode: code })),
           });
           logger.log("info", "terminal", "create", { sessionId: id });
-          socket.send(JSON.stringify(ok(msg.id, "term.created", { sessionId: id })));
+          wsSend(socket, ok(msg.id, "term.created", { sessionId: id }));
         } catch (e) {
           const err = e.cfError || makeError("CF6001");
-          socket.send(JSON.stringify(fail(msg.id, "term.create", err.code,
-            { message: e.cfError?.message || err.message })));
+          wsSend(socket, fail(msg.id, "term.create", err.code,
+            { message: e.cfError?.message || err.message }));
         }
         break;
       }
-      case "term.input": {
+
+      case "term.input":
         terminals.write(msg.payload?.sessionId, msg.payload?.data ?? "");
         break;
-      }
-      case "term.resize": {
+
+      case "term.resize":
         terminals.resize(msg.payload?.sessionId, msg.payload?.cols || 80, msg.payload?.rows || 24);
         break;
-      }
-      case "term.kill": {
-        socket.send(JSON.stringify(ok(msg.id, "term.killed",
-          { killed: terminals.kill(msg.payload?.sessionId) })));
+
+      case "term.kill":
+        wsSend(socket, ok(msg.id, "term.killed",
+          { killed: terminals.kill(msg.payload?.sessionId) }));
         break;
-      }
-      case "lsp.start": {
+
+      case "lsp.start":
         lsp.ensureRunning(msg.payload?.language, msg.payload?.root)
-          .then((r) => socket.send(JSON.stringify(ok(msg.id, "lsp.started", r))))
+          .then((r) => wsSend(socket, ok(msg.id, "lsp.started", r)))
           .catch((e) => {
             const err = e.cfError || makeError("CF4002");
-            socket.send(JSON.stringify(fail(msg.id, "lsp.start", err.code, err.details || {})));
+            wsSend(socket, fail(msg.id, "lsp.start", err.code, err.details || {}));
           });
         break;
-      }
-      case "lsp.request": {
+
+      case "lsp.request":
         lsp.request(msg.payload?.language, msg.payload?.method, msg.payload?.params)
-          .then((result) => socket.send(JSON.stringify(ok(msg.id, "lsp.result", { result }))))
+          .then((result) => wsSend(socket, ok(msg.id, "lsp.result", { result })))
           .catch((e) => {
             const err = e.cfError || makeError("CF0001", {}, { message: e.message });
-            socket.send(JSON.stringify(fail(msg.id, "lsp.result", err.code, err.details || {})));
+            wsSend(socket, fail(msg.id, "lsp.result", err.code, err.details || {}));
           });
         break;
-      }
-      case "lsp.notify": {
+
+      case "lsp.notify":
         lsp.notify(msg.payload?.language, msg.payload?.method, msg.payload?.params);
         break;
-      }
+
       default:
-        socket.send(JSON.stringify(fail(msg.id, msg.type + ".ack", "CF0001",
-          { message: `未知类型 ${msg.type}` })));
+        wsSend(socket, fail(msg.id, msg.type + ".ack", "CF0001",
+          { message: `未知类型 ${msg.type}` }));
     }
   });
 });

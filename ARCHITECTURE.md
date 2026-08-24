@@ -158,6 +158,16 @@ Renderer(Monaco) ──统一信封(WS/IPC)──► LspManager
 - backend 为每个工作区长驻一个 worker 子进程，崩溃自动重启（≤3 次/分钟，超出报 CF5003）
 - 引擎内部加锁，保证单 worker 内串行（避免线程安全问题）
 
+## 9b. 传输安全（任务 #26/#36）
+
+- **鉴权**：设置 `CODEFORGE_TOKEN` 后，/ws hello 必须携带匹配 token（否则 4003）；/relay 必须 `?token=` 匹配
+- **E2E 加密**：设置 `CODEFORGE_E2E=1` 后强制启用
+  - 握手：hello.payload 带 ECDH P-256 公钥(SPKI base64) → hello.ok 回服务器公钥 → 双方 SHA-256(ECDH) 派生 AES-256-GCM 会话密钥
+  - 帧格式：`{v, e:1, d:base64([12B nonce][ct][16B tag])}` —— **id/type/payload 全部进密文**，防元数据泄露
+  - 覆盖范围：/ws 全部信封 + /relay 二进制载荷；中继服务器只见密文
+  - 握手回执(hello.ok)本身明文（客户端尚无密钥），只含公钥不含业务数据
+- **TLS**：生产部署置于 https/wss 之后；桌面端对非 localhost 明文连接给出提示
+
 ## 10. 版本握手
 
 WS/IPC/Agent 连接建立后第一帧必须为：

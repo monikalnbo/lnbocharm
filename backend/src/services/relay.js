@@ -6,39 +6,60 @@
 ///   3. 任一侧关闭即级联关闭
 const net = require("net");
 const { WebSocketServer } = require("ws");
+const e2e = require("./crypto-channel");
 
 function attachRelay(server) {
   const wss = new WebSocketServer({ noServer: true });
+  const E2E_REQUIRED = process.env.CODEFORGE_E2E === "1";
 
   server.on("upgrade", (req, socket, head) => {
     const { pathname } = new URL(req.url, "http://localhost");
     if (pathname !== "/relay") return;   // /ws 由主 WSS 处理
+    // 隧道鉴权（任务#26）：CODEFORGE_TOKEN 设置时必须 ?token= 匹配
+    if (process.env.CODEFORGE_RELAY_TOKEN) {
+      const token = new URL(req.url, "http://localhost").searchParams.get("token");
+      if (token !== process.env.CODEFORGE_RELAY_TOKEN) {
+        socket.destroy(); return;
+      }
+    }
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });
 
   wss.on("connection", (ws) => {
     let target = null;
     let controlDone = false;
+    let key = null;                      // E2E 会话密钥（可选）
 
     ws.on("message", (data, isBinary) => {
-      if (!controlDone) {
-        // 控制帧：目标地址
-        if (isBinary) { ws.close(4002, "first frame must be control"); return; }
-        try {
-          const c = JSON.parse(data.toString());
+      try {
+        if (!controlDone) {
+          if (isBinary) { ws.close(4002, "first frame must be control"); return; }
+          let plain = data.toString();
+          // 控制帧本身可能是加密的（{"e":1,"d":...}）——但首帧无共享密钥，
+          // 因此控制帧明文携带客户端公钥，服务器回执服务器公钥，此后二进制帧加密
+          const c = JSON.parse(plain);
           if (!c.host || !c.port) throw new Error("bad control");
+          if (E2E_REQUIRED || c.pub) {
+            if (!c.pub) { ws.close(4005, "e2e required"); return; }
+            const serverKeys = e2e.genEcdh();
+            key = e2e.deriveKey(serverKeys.privateKey, c.pub);
+            ws.send(JSON.stringify({ pub: serverKeys.publicBase64 }));
+          }
           target = net.connect(c.port, c.host);
-          target.on("data", (d) => { try { ws.send(d); } catch (_) {} });
+          target.on("data", (d) => {
+            try { ws.send(key ? e2e.seal(key, d) : d); } catch (_) {}
+          });
           target.on("error", () => { try { ws.close(4003, "target error"); } catch (_) {} });
           target.on("close", () => { try { ws.close(1000); } catch (_) {} });
           controlDone = true;
-        } catch {
-          ws.close(4002, "bad control frame");
+          return;
         }
-        return;
+        if (!isBinary || !target) return;
+        const plain = key ? e2e.open(key, data) : data;
+        target.write(plain);
+      } catch {
+        try { ws.close(4006, "decrypt error"); } catch (_) {}
       }
-      if (!isBinary || !target) return;
-      try { target.write(data); } catch (_) {}
     });
 
     ws.on("close", () => { if (target) target.destroy(); });
