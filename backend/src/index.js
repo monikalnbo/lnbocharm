@@ -54,6 +54,15 @@ app.use(express.static(path.join(__dirname, "..", "..", "frontend", "dist")));
 
 const worker = getPyWorker();
 const workspace = new Workspace(WORKSPACE);
+
+function isLocalRequest(req) {
+  const addr = req?.socket?.remoteAddress || "";
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+function isLocalSocket(socket) {
+  const addr = socket?.remoteAddress || "";
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
 const executor = new BuildExecutor();
 const terminals = new TerminalService();
 const lsp = new LspManager();

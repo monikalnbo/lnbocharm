@@ -60,7 +60,7 @@ test("数据面 WS 往返：写文件→Lint→读回→搜索，全程无 HTTP 
 
   const c = new WsClient();
   await c.connect();
-
+  try {
   // 写文件
   const w = await c.req("file.write", { path: "demo/main.py",
     content: "def hello():\n    return 'hello world'\n" });
@@ -84,10 +84,11 @@ test("数据面 WS 往返：写文件→Lint→读回→搜索，全程无 HTTP 
   const lg = await c.req("logs.tail", { limit: 50 });
   assert.ok(Array.isArray(lg));
 
-  c.close();
-  child.kill();
-  fs.rmSync(wsRoot, { recursive: true, force: true });
-
+  } finally {
+    c.close();
+    child.kill();
+    fs.rmSync(wsRoot, { recursive: true, force: true });
+  }
   // 验证测试期间没有发生 /api/* 数据请求：检查服务端日志中 http source 仅 health
 }, { timeout: 20_000 });
 
@@ -109,9 +110,12 @@ test("设置 token 后明文 REST 被封锁(CF9001)，WS 不受影响", async ()
   // WS 正常
   const c = new WsClient();
   await c.connect();
-  const r = await c.req("ping");
-  assert.deepStrictEqual(r, { pong: true });
-  c.close();
-  child.kill();
-  fs.rmSync(wsRoot, { recursive: true, force: true });
+  try {
+    const r = await c.req("ping");
+    assert.deepStrictEqual(r, { pong: true });
+  } finally {
+    c.close();
+    child.kill();
+    fs.rmSync(wsRoot, { recursive: true, force: true });
+  }
 }, { timeout: 20_000 });
