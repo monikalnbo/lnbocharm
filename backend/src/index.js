@@ -34,6 +34,8 @@ app.use(express.json({ limit: "4mb" }));
 app.use("/api", (req, res, next) => {
   if (!WS_TOKEN) return next();
   if (req.path === "/health" || req.path.startsWith("/toolchains")) return next();
+  // 本机回环的管理接口豁免（桌面端切工作区用；已有回环+目录白名单双重限制）
+  if (req.path.startsWith("/workspace") && isLocalRequest(req)) return next();
   return res.status(401).json({ v: 1, id: "rest", type: "blocked", ok: false,
     error: { code: "CF9001", severity: "error",
              message: "明文 REST 已禁用",

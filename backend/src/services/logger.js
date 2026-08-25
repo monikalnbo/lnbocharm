@@ -10,9 +10,26 @@ let logDir = null;
 let currentStream = null;
 let currentDate = null;
 
+const RETENTION_DAYS = 14;
+
 function initFile(dir) {
   logDir = dir;
   try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
+  cleanupOld();
+}
+
+/// 保留策略：删除超过 RETENTION_DAYS 的旧日志（任务 #34 磁盘卫生）
+function cleanupOld() {
+  if (!logDir) return;
+  try {
+    const cutoff = Date.now() - RETENTION_DAYS * 86_400_000;
+    for (const f of fs.readdirSync(logDir)) {
+      const m = /^codeforge-\d{4}-\d{2}-\d{2}\.log$/.exec(f);
+      if (!m) continue;
+      const abs = path.join(logDir, f);
+      if (fs.statSync(abs).mtimeMs < cutoff) fs.unlinkSync(abs);
+    }
+  } catch (_) {}
 }
 
 function _stream() {
