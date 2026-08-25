@@ -68,8 +68,14 @@ class PyWorker {
       this.pending.delete(msg.id);
       clearTimeout(p.timer);
       if (msg.ok) p.resolve(msg.result ?? msg);
-      else p.reject(Object.assign(new Error(msg.error?.message || "error"),
-        { cfError: msg.error }));
+      else {
+        // 规范化：与 REST 错误通道同构（details 嵌套）
+        const { code: ec, message: em, hint: eh, severity: es, ...extra } = msg.error || {};
+        p.reject(Object.assign(new Error(em || "error"), {
+          cfError: { code: ec || "CF0001", severity: es || "error",
+                     message: em || "", hint: eh || "", details: extra },
+        }));
+      }
     }
   }
 

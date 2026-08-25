@@ -30,3 +30,9 @@ test("握手校验", () => {
   assert.ok(!handshake({ v: 2, type: "hello" }).ok);
   assert.ok(!handshake({ v: 1, type: "ping" }).ok);
 });
+
+test("makeError 保留结构化 details（一键安装契约）", () => {
+  const e = makeError("CF2003", { toolchain: "gcc", install: "apt install gcc" });
+  assert.strictEqual(e.details.toolchain, "gcc");
+  assert.strictEqual(e.details.install, "apt install gcc");
+});

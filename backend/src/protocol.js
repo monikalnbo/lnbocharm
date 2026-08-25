@@ -24,7 +24,9 @@ function makeError(code, details = {}, override = {}) {
       hint = hint.split(`{${k}}`).join(String(v));
     }
   }
-  return { code, severity: meta.severity || "error", message, hint };
+  // details 随错误下发：前端一键补拉等交互需要结构化字段（如 toolchain 名）
+  return { code, severity: meta.severity || "error", message, hint,
+           details: Object.keys(details).length ? details : undefined };
 }
 
 /** 信封：成功响应 */

@@ -46,7 +46,7 @@ class Worker:
         except CodeForgeError as e:
             return {"v": 1, "id": rid, "ok": False,
                     "error": {"code": e.code, "message": e.message,
-                              "hint": e.hint, **e.details}}
+                              "hint": e.hint, "details": e.details}}
         except Exception as exc:   # 单请求异常不杀死 worker 进程
             return {"v": 1, "id": rid, "ok": False,
                     "error": {"code": "CF0001",
