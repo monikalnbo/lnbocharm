@@ -57,6 +57,9 @@ app.use(express.static(path.join(__dirname, "..", "..", "frontend", "dist")));
 const worker = getPyWorker();
 const workspace = new Workspace(WORKSPACE);
 
+/// 相对路径 → 当前工作区绝对路径（所有文件类算子的唯一入口）
+function wsAbs(p) { return path.resolve(workspace.getRoot(), p || "."); }
+
 function isLocalRequest(req) {
   const addr = req?.socket?.remoteAddress || "";
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
@@ -147,6 +150,7 @@ app.post("/api/workspace/setRoot", (req, res) => {
   try {
     const r = workspace.setRoot(req.body?.root);
     watchWorkspace();
+    lsp.stopAll();                       // 语言服务器绑定旧根，必须重启
     res.json(ok("rest", "workspace.setRoot", r));
   }
   catch (e) { const err = e.cf || makeError("CF1001"); res.status(400).json(fail("rest", "workspace.setRoot", err.code)); }
@@ -481,7 +485,7 @@ wss.on("connection", (socket, req) => {
 
       case "plan":
         wrap(socket, msg, () => worker.request(null, "plan", {
-          file: msg.payload?.file,
+          file: wsAbs(msg.payload?.file),
           out_dir: "/tmp/cf-build/" + (msg.id || String(Date.now())),
           run_args: msg.payload?.runArgs,
         }));
@@ -517,6 +521,7 @@ wss.on("connection", (socket, req) => {
         wrap(socket, msg, async () => {
           const r = workspace.setRoot(msg.payload?.root);
           watchWorkspace();
+          lsp.stopAll();
           return r;
         });
         break;

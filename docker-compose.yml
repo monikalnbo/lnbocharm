@@ -18,7 +18,7 @@ services:
       CODEFORGE_WS: /app/workspace-demo
     command: sh -c "npm ci --omit=dev && node src/index.js"
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"   # 仅回环；对外经 Nginx TLS（见 docs/deploy-server.md）
     depends_on:
       - gcc
       - rust

@@ -89,3 +89,17 @@ def test_typescript_detection():
 def test_ts_js_share_builder():
     reg = get_registry()
     assert reg.get("typescript").builder == reg.get("javascript").builder == "typescript"
+
+
+test("register overwrite=True 允许接管已有扩展名", None) if False else None
+from codeforge.langdetect import LanguageRegistry as _LR  # noqa: E402
+
+
+def test_overwrite_takes_over_extension():
+    reg = _LR()
+    reg.register("mine", ext=[".cfg2"], monacoId="python", builder="python",
+                 comment="#")
+    reg.register("other", ext=[".cfg2"], monacoId="plaintext",
+                 builder="c", comment="//", overwrite=True)
+    assert reg._by_ext[".cfg2"] == "other"          # 所有权转移
+    assert reg.get("mine").ext == [".cfg2"]         # 能力表双方都在

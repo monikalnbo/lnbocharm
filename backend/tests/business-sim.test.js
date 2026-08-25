@@ -99,6 +99,9 @@ test("业务流模拟：建项目 → 写码 → 检查 → 搜索 → 构建计
   // 步骤 5：构建计划（Python 工具链在本机存在）
   const plan = await call("plan", { file: "src/calc.py" });
   assert.strictEqual(plan.language, "python");
+  // 回归：相对路径必须在“当前工作区”下解析（曾钉死在启动目录）
+  assert.ok(plan.build_cmd.join(" ").includes(path.join(projDir, "src", "calc.py")),
+    "plan 应使用切根后的绝对路径: " + plan.build_cmd.join(" "));
 
   // 步骤 6：终端会话创建并执行命令
   const created = await call("term.create", { cols: 80, rows: 24 });

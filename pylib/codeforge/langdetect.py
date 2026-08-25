@@ -135,7 +135,9 @@ class LanguageRegistry:
             if old and old != name:
                 if on_ext_conflict == "skip":
                     continue
-                raise ValueError(f"register_language: 扩展名 {e_low} 已被 {old} 占用")
+                if not overwrite:
+                    raise ValueError(f"register_language: 扩展名 {e_low} 已被 {old} 占用")
+                # overwrite=True：显式接管（原属主能力表保留，歧义由 resolve 处理）
             self._by_ext[e_low] = name
             self._by_ext[e_low] = name
         # 能力表保留全部声明扩展名；_by_ext 只是“默认认领”关系，歧义由 resolve_ambiguous 处理

@@ -11,7 +11,7 @@
         {{ t("build.run") }}
       </button>
       <span v-if="detectedLang" class="lang-badge">{{ detectedLang }}</span>
-      <button v-if="missingToolchain" class="install" @click="installMissing" :disabled="installProgress >= 0">
+      <button v-if="missingToolchain && isDesktop" class="install" @click="installMissing" :disabled="installProgress >= 0">
         {{ installProgress >= 0 ? t("build.downloading", { p: installProgress }) : t("build.installBtn", { name: missingToolchain }) }}
       </button>
     </div>
