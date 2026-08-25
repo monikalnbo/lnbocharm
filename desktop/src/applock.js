@@ -82,10 +82,16 @@ async function unlock({ password } = {}) {
       return { ok: false, hint: "指纹验证失败或被取消：" + e.message };
     }
   }
-  if (password && hashPassword(password, st.salt) === st.hash) {
-    failCount = 0;
-    return { ok: true };
+  if (password) {
+    const given = Buffer.from(hashPassword(password, st.salt));
+    const expect = Buffer.from(st.hash || "");
+    const okEq = given.length === expect.length &&
+                 crypto.timingSafeEqual(given, expect);
+    if (okEq) { failCount = 0; return { ok: true }; }
   }
+  failCount++;
+  if (failCount >= MAX_FAILS) lockoutUntil = Date.now() + LOCKOUT_MS;
+  return { ok: false, hint: "密码不正确" };
   failCount++;
   if (failCount >= MAX_FAILS) lockoutUntil = Date.now() + LOCKOUT_MS;
   return { ok: false, hint: "密码不正确" };

@@ -62,6 +62,24 @@ async function install(id, onProgress = () => {}) {
   const tmpArchive = path.join(os.tmpdir(), `cf-${id}-${Date.now()}.tar.gz`);
   fs.writeFileSync(tmpArchive, buf);
 
+  // 先列出条目做安全校验：拒绝绝对路径与 .. 穿越（TarBomb 防护）
+  const listing = await new Promise((resolve) => {
+    const t = spawn("tar", ["-tzf", tmpArchive]);
+    let out = "";
+    t.stdout.on("data", (d) => (out += d.toString()));
+    t.on("error", () => resolve(null));
+    t.on("close", () => resolve(out));
+  });
+  if (listing !== null) {
+    const dangerous = listing.split("\n").filter((e) =>
+      e.startsWith("/") || e.includes("../") || e.includes("~"));
+    if (dangerous.length) {
+      fs.rmSync(tmpArchive, { force: true });
+      return { ok: false,
+        output: `压缩包包含危险路径，已拒绝解压:\n${dangerous.slice(0, 5).join("\n")}` };
+    }
+  }
+
   await new Promise((resolve) => {
     const tar = spawn("tar", ["-xzf", tmpArchive, "-C", dest]);
     tar.on("error", () => resolve());   // tar 不存在时静默（提示用户手动解压）

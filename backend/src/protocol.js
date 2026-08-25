@@ -35,8 +35,9 @@ function ok(id, type, result) {
 }
 
 /** 信封：错误响应（type 为对应请求的响应类型） */
-function fail(id, type, code, details = {}) {
-  return { v: PROTOCOL_VERSION, id, type, ok: false, error: makeError(code, details) };
+function fail(id, type, code, details = {}, override = {}) {
+  return { v: PROTOCOL_VERSION, id, type, ok: false,
+           error: makeError(code, details, override) };
 }
 
 /** 校验握手帧；返回 {ok, info} 或 {ok:false, reason} */

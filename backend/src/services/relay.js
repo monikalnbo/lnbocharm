@@ -67,6 +67,19 @@ function attachRelay(server) {
           // 因此控制帧明文携带客户端公钥，服务器回执服务器公钥，此后二进制帧加密
           const c = JSON.parse(plain);
           if (!c.host || !c.port) throw new Error("bad control");
+          // 目标白名单（任务 #14）：配置 CODEFORGE_RELAY_HOSTS 后仅允许列出的主机
+          // 支持 .example.com 后缀通配；未配置 = 允许全部（本地开发）
+          if (process.env.CODEFORGE_RELAY_HOSTS) {
+            const allowed = process.env.CODEFORGE_RELAY_HOSTS.split(",").map((x) => x.trim().toLowerCase());
+            const host = String(c.host).toLowerCase();
+            const okHost = allowed.some((a) =>
+              host === a || (a.startsWith(".") && (host.endsWith(a) || host === a.slice(1))));
+            if (!okHost) {
+              console.error(`[relay] ⛔ 目标不在白名单: ${host}:${c.port}`);
+              ws.close(4007, "host not allowed");
+              return;
+            }
+          }
           if (E2E_REQUIRED || c.pub) {
             if (!c.pub) { ws.close(4005, "e2e required"); return; }
             const serverKeys = e2e.genEcdh();

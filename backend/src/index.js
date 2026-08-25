@@ -59,9 +59,14 @@ function isLocalRequest(req) {
   const addr = req?.socket?.remoteAddress || "";
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
-function isLocalSocket(socket) {
-  const addr = socket?.remoteAddress || "";
+function isLocalAddr(addr) {
+  addr = String(addr || "");
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+function isLocalSocket(sockOrReq) {
+  // 兼容：Node 26 下 ws 的 socket.remoteAddress 可能为 undefined，
+  // 优先从 HTTP upgrade 层的 req.socket 取
+  return isLocalAddr(sockOrReq?.socket?.remoteAddress ?? sockOrReq?.remoteAddress);
 }
 const executor = new BuildExecutor();
 const terminals = new TerminalService();
@@ -269,6 +274,7 @@ function wsSend(socket, envelope) {
 }
 
 wss.on("connection", (socket, req) => {
+  const peerAddr = req?.socket?.remoteAddress || "";   // upgrade 层取地址（Node26 下 socket.remoteAddress 可能 undefined）
   let handshaken = false;
   const kick = setTimeout(() => socket.close(4000, "handshake timeout"), 10_000);
 
@@ -383,7 +389,7 @@ wss.on("connection", (socket, req) => {
               { sessionId, exitCode: code })),
           });
           logger.log("info", "terminal", "create", { sessionId: id });
-          wsSend(socket, ok(msg.id, "term.created", { sessionId: id }));
+          wsSend(socket, ok(msg.id, "term.create.result", { sessionId: id }));
         } catch (e) {
           const err = e.cfError || makeError("CF6001");
           wsSend(socket, fail(msg.id, "term.create", err.code,
@@ -494,7 +500,7 @@ wss.on("connection", (socket, req) => {
 
       // 工作区切根：仅本机回环连接允许（远程连接禁止切到服务器任意目录）
       case "workspace.setRoot":
-        if (!isLocalSocket(socket)) {
+        if (!isLocalAddr(peerAddr)) {
           wsSend(socket, fail(msg.id, "workspace.setRoot.result", "CF1002",
             { message: "远程连接不允许切换工作区根" }));
           break;
@@ -510,8 +516,8 @@ wss.on("connection", (socket, req) => {
         break;
 
       default:
-        wsSend(socket, fail(msg.id, msg.type + ".ack", "CF0001",
-          { message: `未知类型 ${msg.type}` }));
+        wsSend(socket, fail(msg.id, msg.type + ".result", "CF0001",
+          {}, { message: `未知类型 ${msg.type}` }));
     }
   });
 });

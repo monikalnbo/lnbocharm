@@ -124,7 +124,9 @@ REST `GET /api/languages` 直接下发该 JSON；前端 Monaco 配置、图标�
 
 - 桌面端启动本地混合代理；隧道 WS 帧格式：`[4B 目标地址长度][目标地址][payload]`
 - 内嵌浏览器面板用独立 session 绑定该代理，预设 GitHub/X 入口
-- 错误码 CF7xxx：CF7001 隧道未连接 / CF7002 目标被拒 / CF7003 鉴权失败
+- 安全：token + **设备指纹白名单**（默认拒绝未知设备）+ **目标主机白名单**
+  （`CODEFORGE_RELAY_HOSTS=github.com,.x.com,...`，支持后缀通配；未配置仅本地开发用）
+- 错误码 CF7xxx：CF7001 隧道未连接 / CF7002 目标被拒(4007) / CF7003 鉴权失败
 
 ## 8. LSP 层（智能补全与语法诊断核心）
 
