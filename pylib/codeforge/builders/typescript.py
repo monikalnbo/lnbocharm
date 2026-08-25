@@ -24,7 +24,9 @@ class TypeScriptBuilder(Builder):
                              run_cmd=run_cmd)
         tsc = tc.get("tsc")
         assert tsc, "缺少 tsc"
-        js_out = out_dir / (source.stem + ".js")
+        # .mts/.cts 编译产物后缀不同（tsc 规范）
+        out_ext = {".mts": ".mjs", ".cts": ".cjs"}.get(source.suffix.lower(), ".js")
+        js_out = out_dir / (source.stem + out_ext)
         build_cmd = [tsc, str(source), "--target", "es2020", "--module", "commonjs",
                      "--outDir", str(out_dir), "--sourceMap"]
         run_cmd = [tc["node"], str(js_out)] + list(run_args or [])

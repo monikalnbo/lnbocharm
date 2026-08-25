@@ -72,6 +72,7 @@ export function getModel(path) {
 
 // ---------- LSP 补全代理（失败静默回退到 Monaco 词法补全） ----------
 let lspTried = new Set();
+const lspDownUntil = {};   // language -> 冷却截止时间戳
 
 export async function ensureLsp(language) {
   if (!store.registry[language] || lspTried.has(language)) return;
@@ -90,6 +91,7 @@ for (const lang of ["c", "cpp", "csharp", "rust", "python", "java",
   monaco.languages.registerCompletionItemProvider(lang, {
     triggerCharacters: [".", ":", "<", '"', "/", "->"],
     async provideCompletionItems(model, position) {
+      if ((lspDownUntil[lang] || 0) > Date.now()) return { suggestions: [] };
       try {
         const items = await wsRequest("lsp.request", {
           language: lang,

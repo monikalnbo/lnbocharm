@@ -26,10 +26,11 @@ contextBridge.exposeInMainWorld("codeforge", {
 
   /// 工具链一键安装（任务 #38/#41）
   toolchainList: () => ipcRenderer.invoke("toolchain:list"),
-  installToolchain: (id, progressChannel) =>
-    ipcRenderer.invoke("toolchain:install", id, progressChannel),
-  onToolchainProgress: (channel, fn) =>
-    ipcRenderer.on(channel, (_e, data) => fn(data)),
+  installToolchain: (id) => ipcRenderer.invoke("toolchain:install", id),
+  onToolchainProgress: (fn) => {
+    ipcRenderer.removeAllListeners("toolchain:progress");
+    ipcRenderer.on("toolchain:progress", (_e, data) => fn(data));
+  },
 
   /// 内存指标（任务 #34）
   appMemory: () => ipcRenderer.invoke("app:memory"),

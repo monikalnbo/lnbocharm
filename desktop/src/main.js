@@ -320,10 +320,11 @@ ipcMain.handle("toolchain:list", async () => {
   try { return { ok: true, list: await toolchains.list() }; }
   catch (e) { return { ok: false, output: e.message }; }
 });
-ipcMain.handle("toolchain:install", async (_e, id, onProgressChannel) => {
+const TOOLCHAIN_PROGRESS_CHANNEL = "toolchain:progress";
+ipcMain.handle("toolchain:install", async (_e, id) => {
   return toolchains.install(id, (percent) => {
-    if (onProgressChannel && win && !win.isDestroyed())
-      win.webContents.send(onProgressChannel, { id, percent });
+    if (win && !win.isDestroyed())
+      win.webContents.send(TOOLCHAIN_PROGRESS_CHANNEL, { id, percent });
   });
 });
 

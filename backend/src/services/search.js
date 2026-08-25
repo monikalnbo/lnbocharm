@@ -90,7 +90,7 @@ async function replaceAll(workspace, opts) {
     if (!re.test(text)) continue;
     re.lastIndex = 0;
     const count = (text.match(re) || []).length;
-    const updated = text.replace(re, replacement);
+    const updated = text.replace(re, () => replacement);   // 函数形式：$& 等特殊模式按字面处理
     await fsp.writeFile(abs, updated, "utf8");
     filesChanged++; total += count;
   }

@@ -116,11 +116,10 @@ async function preflight(file) {
 async function installMissing() {
   if (!isElectron || !missingToolchain.value) return;
   installProgress.value = 0;
-  const channel = "tc-progress-" + Date.now();
-  window.codeforge.onToolchainProgress(channel, ({ percent }) => {
+  window.codeforge.onToolchainProgress(({ percent }) => {
     installProgress.value = percent;
   });
-  const r = await window.codeforge.installToolchain(missingToolchain.value, channel);
+  const r = await window.codeforge.installToolchain(missingToolchain.value);
   installProgress.value = -1;
   if (r.ok) {
     notice.value = `工具链 ${missingToolchain.value} 安装完成，正在重新构建…`;
