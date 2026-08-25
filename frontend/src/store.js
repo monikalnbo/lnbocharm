@@ -1,6 +1,11 @@
 /// 全局状态（轻量 reactive store）
 import { reactive } from "vue";
 
+function safeParse(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || "") ?? fallback; }
+  catch { return fallback; }   // 数据损坏不能白屏
+}
+
 export const store = reactive({
   // 语言注册表（来自 /api/languages，单一事实来源）
   registry: {},          // {python: {ext, monacoId, builder, ...}}
@@ -18,8 +23,8 @@ export const store = reactive({
   buildRunning: false,
   buildOutput: "",       // 尾部 512KB 由服务端保证，前端再留上限
 
-  // 断点：path -> Set(lineNumber)
-  breakpoints: JSON.parse(localStorage.getItem("cf.breakpoints") || "{}"),
+  // 断点：path -> line[]（解析失败降级为空，绝不阻塞启动）
+  breakpoints: safeParse("cf.breakpoints", {}),
 
   // 背景板/主题
   theme: localStorage.getItem("cf.theme") || "dark",

@@ -58,7 +58,9 @@
     <!-- 状态栏 -->
     <footer class="statusbar">
       <span v-if="memMB">内存 {{ memMB }} MB</span>
-      <span>{{ store.notice }}</span>
+      <span :style="wsState.fatal ? 'color:#f85149' : ''">
+        {{ wsState.fatal || store.notice }}
+      </span>
       <button @click="togglePanel('left')">{{ t("statusbar.files") }}</button>
       <button @click="togglePanel('right')">{{ t("statusbar.panels") }}</button>
       <button @click="togglePanel('terminal')">{{ t("statusbar.terminal") }}</button>
