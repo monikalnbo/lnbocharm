@@ -29,7 +29,6 @@ export const store = reactive({
   // 背景板/主题
   theme: localStorage.getItem("cf.theme") || "dark",
   background: localStorage.getItem("cf.background") || "",   // 纯色或图片URL
-  backgroundOpacity: parseFloat(localStorage.getItem("cf.bgOpacity") || "1"),
 
   // 面板折叠（不遮挡代码区：dock 挤压布局）
   panels: {

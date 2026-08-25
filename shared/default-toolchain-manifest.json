@@ -1,0 +1,14 @@
+[
+  { "id": "gcc-13-win-x64", "language": "c", "version": "13.2.0", "platform": "win32",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/gcc-13.2-win-x64.tar.gz" },
+  { "id": "gcc-13-linux-x64", "language": "c", "version": "13.2.0", "platform": "linux",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/gcc-13.2-linux-x64.tar.gz" },
+  { "id": "rust-stable-x86_64", "language": "rust", "version": "1.79", "platform": "multi",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/rust-stable.tar.gz" },
+  { "id": "jdk-21-x64", "language": "java", "version": "21", "platform": "multi",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/jdk-21.tar.gz" },
+  { "id": "dotnet-8-x64", "language": "csharp", "version": "8.0", "platform": "multi",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/dotnet-8.tar.gz" },
+  { "id": "node20-tsc-x64", "language": "typescript", "version": "20+tsc5", "platform": "multi",
+    "url": "" }
+]

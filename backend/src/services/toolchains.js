@@ -14,12 +14,14 @@ const crypto = require("crypto");
 
 function manifestPath(dir) { return path.join(dir, "manifest.json"); }
 
+const DEFAULT_MANIFEST = path.join(__dirname, "..", "..", "..", "shared", "default-toolchain-manifest.json");
+
 function loadManifest(dir) {
-  try {
-    return JSON.parse(fs.readFileSync(manifestPath(dir), "utf8"));
-  } catch {
-    return [];   // 无清单 = 尚未托管任何工具链，接口正常返回空数组
+  // 用户目录优先（管理员可自定义）；缺失时回退内置默认清单（七语言开箱可见）
+  for (const f of [manifestPath(dir), DEFAULT_MANIFEST]) {
+    try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (_) {}
   }
+  return [];
 }
 
 function findById(dir, id) {

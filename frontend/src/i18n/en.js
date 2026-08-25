@@ -65,6 +65,9 @@ export default {
     connection: "Connection",
     wsToken: "WS access token (fill when server sets CODEFORGE_TOKEN)",
     serverUrl: "Build/accelerator server URL (desktop)",
+    colorBg: "Background",
+    colorAccent: "Accent",
+    resetDefaults: "Reset",
     lookSection: "Appearance",
   },
   workspace: {
@@ -80,6 +83,25 @@ export default {
     failed: "FAILED (exit {code})",
     okShort: "OK", failedShort: "FAILED",
   },
+  guide: {
+    subtitle: "Three steps to your first program",
+    step1: "Pick a folder as your workspace — all project files live here",
+    webHint: "In web mode, browse directories on the server",
+    step2a: "Click ＋ in the top-left to create a file — a starter template is generated for you",
+    step2b: "Python / JavaScript / TypeScript / C / C++ / Rust / Java / C# supported",
+    step3a: "Hit ▶ to run. Missing toolchain? One-click install will be offered",
+    step3b: "Unsaved changes are saved automatically before running",
+    skip: "Skip tour",
+    start: "Start coding →",
+  },
+  build: {
+    modeDesc: {
+      server: "Compile & run on the remote server (recommended)",
+      local: "Build & run on this machine",
+      docker: "Isolated builds in container pool",
+    },
+  },
+  terminal: { welcome: "Terminal ready. New to CLI? Just use the panels above." },
   statusbar: { files: "◧ Files", panels: "◨ Panels", terminal: "▭ Terminal" },
   accel: {
     enabled: "Accelerator: ON ({addr})",

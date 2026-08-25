@@ -2,7 +2,7 @@
   <div class="filetree">
     <div class="ft-head">
       <span :title="store.workspaceRoot">{{ rootName || t("filetree.title") }}</span>
-      <button v-if="isDesktop" class="icon" :title="t('workspace.openFolder')" @click="openFolder">打开</button>
+      <button v-if="isDesktop" class="icon" :title="t('workspace.openFolder')" @click="openFolder">{{ t("workspace.openFolder") }}</button>
       <button class="icon" :title="t('filetree.newFile')" @click="onCreate">＋</button>
       <button class="icon" :title="t('filetree.refresh')" @click="refresh">⟳</button>
     </div>

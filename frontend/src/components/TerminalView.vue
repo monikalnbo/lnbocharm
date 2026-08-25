@@ -56,11 +56,11 @@ function sendInput(data) {
   if (attachedTo) wsNotify("term.input", { sessionId: attachedTo, data });
 }
 
-onMounted(() => {
+onMounted(async () => {
   term = new Terminal({
-    theme: { background: "#10141c" },
-    fontSize: 13,
-    cursorBlink: true,
+    theme: { background: "#0f1011", foreground: "#d0d6e0" },
+    fontSize: 13, cursorBlink: true,
+    fontFamily: '"JetBrains Mono", ui-monospace, Consolas, monospace',
   });
   fit = new FitAddon();
   term.loadAddon(fit);
@@ -68,6 +68,8 @@ onMounted(() => {
   fit.fit();
   term.onData(sendInput);
   window.addEventListener("resize", () => fit.fit());
+  term.writeln(t("terminal.welcome"));
+  await createSession();          // 自动创建首个会话
 });
 
 onUnmounted(() => term?.dispose());

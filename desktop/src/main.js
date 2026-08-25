@@ -75,21 +75,29 @@ async function startEmbeddedBackend() {
   const entry = app.isPackaged
     ? path.join(process.resourcesPath, "backend", "src", "index.js")
     : path.join(__dirname, "..", "..", "backend", "src", "index.js");
+  const logDir = path.join(os.homedir(), ".codeforge", "logs");
+  try { fs.mkdirSync(logDir, { recursive: true }); } catch (_) {}
+  const logFile = path.join(logDir, "embedded-backend.log");
+  // 诊断（用户反馈：连接中卡住无从排查）：后端输出全部落盘
+  const out = fs.openSync(logFile, "a");
   serverProc = spawn(process.execPath, [entry], {
     env: { ...process.env,
-           ELECTRON_RUN_AS_NODE: "1",          // 关键：以纯 Node 模式运行，否则变成第二个 GUI 实例
+           ELECTRON_RUN_AS_NODE: "1",
            PORT: port,
            CODEFORGE_WS: path.join(os.tmpdir(), "codeforge-workspace") },
-    stdio: "ignore",
+    stdio: ["ignore", out, out],
   });
-  for (let i = 0; i < 60; i++) {
+  fs.writeSync(out, `\n===== ${new Date().toISOString()} 启动 (port ${port}) =====\n`);
+  for (let i = 0; i < 120; i++) {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/health`);
       if (r.ok) return port;
     } catch {}
-    await new Promise((res) => setTimeout(res, 200));
+    await new Promise((res) => setTimeout(res, 250));
   }
-  throw new Error("embedded backend failed to start");
+  const err = new Error(`内置服务启动超时。日志：${logFile}`);
+  err.logFile = logFile;
+  throw err;
 }
 
 function createWindow() {
@@ -122,8 +130,14 @@ function createWindow() {
       win.loadURL(`http://127.0.0.1:${port}`);
     })
     .catch((e) => {
-      if (win && !win.isDestroyed())
-        dialog.showErrorBox("CodeForge", "内置服务启动失败：\n" + e.message);
+      if (!win || win.isDestroyed()) return;
+      dialog.showMessageBox(win, {
+        type: "error", title: "CodeForge", buttons: ["打开日志文件夹", "关闭"],
+        message: "内置服务启动失败", detail: e.message,
+      }).then(({ response }) => {
+        if (response === 0 && e.logFile)
+          require("child_process").exec(`explorer /select,"${e.logFile}"`);
+      });
     });
 }
 
@@ -275,7 +289,10 @@ async function switchWorkspace(root) {
 
 ipcMain.handle("workspace:openDialog", async () => {
   const r = await dialog.showOpenDialog(win, {
-    properties: ["openDirectory"], title: "打开工作区文件夹",
+    properties: ["openDirectory"],
+    title: "选择工作区文件夹",
+    message: "选择任意项目文件夹作为工作区（无需特定文件后缀，支持所有语言）",
+    buttonLabel: "设为工作区",
     defaultPath: readSettings().lastRoot,
   });
   if (r.canceled || !r.filePaths[0]) return null;

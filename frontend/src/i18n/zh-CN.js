@@ -65,6 +65,9 @@ export default {
     connection: "连接",
     wsToken: "WS 访问令牌（服务器设置 CODEFORGE_TOKEN 时填写）",
     serverUrl: "构建/加速器服务器地址（桌面端）",
+    colorBg: "背景色",
+    colorAccent: "强调色",
+    resetDefaults: "恢复默认",
     lookSection: "外观",
   },
   workspace: {
@@ -80,6 +83,25 @@ export default {
     failed: "失败（退出码 {code}）",
     okShort: "成功", failedShort: "失败",
   },
+  guide: {
+    subtitle: "三步开始你的第一个程序",
+    step1: "选择一个文件夹作为工作区，项目文件都会保存在这里",
+    webHint: "网页模式下请通过服务器上的目录浏览",
+    step2a: "点击左上角 ＋ 新建文件，选择语言后会自动生成入门模板",
+    step2b: "支持 Python / JavaScript / TypeScript / C / C++ / Rust / Java / C#",
+    step3a: "写完点右上角 ▶ 运行。缺少工具链时会提示一键安装",
+    step3b: "运行前会自动保存你的修改",
+    skip: "跳过引导",
+    start: "开始使用 →",
+  },
+  build: {
+    modeDesc: {
+      server: "在远程服务器上编译运行（推荐新手）",
+      local: "在本机直接编译运行",
+      docker: "在容器池中隔离构建",
+    },
+  },
+  terminal: { welcome: "终端就绪。不会用命令行也没关系，直接用上面的界面即可。" },
   statusbar: { files: "◧ 文件", panels: "◨ 面板", terminal: "▭ 终端" },
   accel: {
     enabled: "加速器：已启用 ({addr})",

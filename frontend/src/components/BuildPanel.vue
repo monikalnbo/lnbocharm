@@ -7,6 +7,7 @@
         <option value="local">{{ t("build.modes.local") }}</option>
         <option value="docker">{{ t("build.modes.docker") }}</option>
       </select>
+      <span class="mode-desc">{{ t(`build.modeDesc.${store.buildMode}`) }}</span>
       <button :disabled="store.buildRunning || !store.activePath" @click="run">
         {{ t("build.run") }}
       </button>
@@ -204,4 +205,9 @@ async function __runBody() {
 
 <style scoped>
 .lang-badge { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 0 7px; }
+</style>
+
+<style scoped>
+.mode-desc { font-size: 11px; color: var(--dim); margin-left: auto; }
+.install { background: var(--accent); color: #fff; border-color: var(--accent); }
 </style>
