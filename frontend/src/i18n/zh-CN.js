@@ -62,7 +62,23 @@ export default {
     spelling: "拼写检查",
     indentCheck: "缩进检查",
     dict: "自定义词典（逗号分隔）",
+    connection: "连接",
+    wsToken: "WS 访问令牌（服务器设置 CODEFORGE_TOKEN 时填写）",
+    serverUrl: "构建/加速器服务器地址（桌面端）",
     lookSection: "外观",
+  },
+  workspace: {
+    openFolder: "打开文件夹",
+    currentRoot: "当前工作区",
+    rootFallback: "资源管理器",
+  },
+  common: { error: "[错误]", hintPrefix: "[提示]" },
+  build: {
+    downloading: "下载中 {p}%",
+    installBtn: "一键安装 {name}",
+    success: "成功（{ms}ms，退出码 {code}）",
+    failed: "失败（退出码 {code}）",
+    okShort: "成功", failedShort: "失败",
   },
   statusbar: { files: "◧ 文件", panels: "◨ 面板", terminal: "▭ 终端" },
   accel: {

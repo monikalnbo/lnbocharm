@@ -42,7 +42,7 @@ async function createSession() {
     current.value = r.sessionId;
     attach();
   } catch (e) {
-    term?.writeln(`\r\n[错误] ${e.cf?.hint || e.message}`);
+    term?.writeln(`\r\n${t("common.error")} ${e.cf?.hint || e.message}`);
   }
 }
 

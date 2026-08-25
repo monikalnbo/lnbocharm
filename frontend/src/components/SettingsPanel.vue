@@ -7,10 +7,10 @@
       </div>
 
       <section>
-        <h4>连接</h4>
-        <label>WS 访问令牌（服务器设置 CODEFORGE_TOKEN 时填写）</label>
+        <h4>{{ t("settings.connection") }}</h4>
+        <label>{{ t("settings.wsToken") }}</label>
         <input v-model="s.wsToken" placeholder="留空表示无鉴权" />
-        <label>构建/加速器服务器地址（桌面端）</label>
+        <label>{{ t("settings.serverUrl") }}</label>
         <input v-model="s.serverUrl" placeholder="http://your-server:8787" />
       </section>
 

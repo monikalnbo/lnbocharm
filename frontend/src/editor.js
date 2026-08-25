@@ -3,6 +3,7 @@ import * as monaco from "./monaco.js";
 const monacoApi = monaco;
 import { api, track } from "./api.js";
 import { store, toggleBreakpoint } from "./store.js";
+import { i18n } from "./i18n/index.js";
 import { openModel, ensureLsp, languageOf, fileUri } from "./monaco.js";
 
 let editor = null;
@@ -121,7 +122,7 @@ export async function runLint(path) {
       severity: d.severity === "error" ? monacoApi.MarkerSeverity.Error
               : d.severity === "warning" ? monacoApi.MarkerSeverity.Warning
               : monacoApi.MarkerSeverity.Info,
-      message: `${d.message}\n[提示] ${d.hint}`,   // 不同错误不同提示
+      message: `${d.message}\n${i18n.global.t("common.hintPrefix")} ${d.hint}`,   // 不同错误不同提示
       source: d.source,
       startLineNumber: d.line, startColumn: d.col,
       endLineNumber: d.line, endColumn: d.col + 1,

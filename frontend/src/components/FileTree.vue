@@ -1,7 +1,8 @@
 <template>
   <div class="filetree">
     <div class="ft-head">
-      <span>{{ t("filetree.title") }}</span>
+      <span :title="store.workspaceRoot">{{ rootName || t("filetree.title") }}</span>
+      <button v-if="isDesktop" class="icon" :title="t('workspace.openFolder')" @click="openFolder">打开</button>
       <button class="icon" :title="t('filetree.newFile')" @click="onCreate">＋</button>
       <button class="icon" :title="t('filetree.refresh')" @click="refresh">⟳</button>
     </div>
@@ -19,23 +20,36 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { api } from "../api.js";
+import { ref, computed, onMounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { api, track } from "../api.js";
 import { store } from "../store.js";
 import { openFile } from "../editor.js";
-import { track, api as _unusedApi } from "../api.js";
 import { on as wsOn } from "../ws.js";
-import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const raw = ref([]);
 const collapsed = ref(new Set());
-const { t } = useI18n();
+const isDesktop = !!window.codeforge;
+
+const rootName = computed(() =>
+  store.workspaceRoot ? store.workspaceRoot.split(/[\\/]/).pop() : "");
 
 async function refresh() {
   try { raw.value = await api.tree("."); } catch {}
 }
 onMounted(refresh);
 defineExpose({ refresh });
+
+// 工作区切换后自动刷新
+watch(() => store.workspaceRoot, () => refresh());
+
+// 服务器 fs.changed 推送：外部/构建产物改动自动刷新（防抖）
+let refreshTimer = null;
+wsOn("fs.changed", () => {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refresh, 300);
+});
 
 function flatten(nodes, depth = 0) {
   // 目录优先，同级按名称排序
@@ -57,38 +71,41 @@ function toggle(node) {
   collapsed.value = s;
 }
 
-async function open(path) { await openFile(path); }
+async function open(path) {
+  track("file.open", path);
+  await openFile(path);
+}
+
+// 图标由语言注册表驱动
+function iconOf(name) {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return "•";
+  const langName = store.extMap[name.slice(dot).toLowerCase()];
+  const id = langName ? store.registry[langName]?.monacoId : null;
+  return id ? id.slice(0, 2).toUpperCase() : "•";
+}
 
 async function onCreate() {
   track("file.create_click");
   const p = prompt(t("filetree.newFilePrompt"));
   if (!p) return;
-  await api.create(p, false).catch((e) => alert(e.cf?.hint || e.message));
-  refresh();
+  try {
+    await api.create(p, false).catch((e) => alert(e.cf?.hint || e.message));
+    refresh();
+  } catch {}
 }
 
 async function onDelete(node) {
-  if (!confirm(`删除 ${node.path}？`)) return;
+  if (!confirm(t("filetree.deleteConfirm", { path: node.path }))) return;
   track("file.delete", node.path);
-  await api.remove(node.path).catch((e) => alert(e.cf?.hint || e.message));
-  refresh();
+  try {
+    await api.remove(node.path).catch((e) => alert(e.cf?.hint || e.message));
+    refresh();
+  } catch {}
 }
 
-// 图标/标签由语言注册表驱动（不再硬编码映射表）
-function iconOf(name) {
-  const dot = name.lastIndexOf(".");
-  if (dot < 0) return "•";
-  const langName = store.extMap[name.slice(dot).toLowerCase()];
-  if (!langName) return "•";
-  const m = store.registry[langName];
-  return m?.monacoId === "python" ? "PY"
-       : m?.monacoId === "rust" ? "RS"
-       : m?.monacoId === "java" ? "JV"
-       : m?.monacoId === "csharp" ? "C#"
-       : (m?.monacoId === "cpp") ? "C+"
-       : (m?.monacoId === "c") ? "C"
-       : (m?.monacoId === "typescript") ? "TS"
-       : (m?.monacoId === "javascript") ? "JS"
-       : (m?.monacoId || langName).slice(0, 2).toUpperCase();
+async function openFolder() {
+  track("workspace.open_click");
+  await window.codeforge.workspace.openDialog();
 }
 </script>

@@ -62,7 +62,23 @@ export default {
     spelling: "Spell check",
     indentCheck: "Indent check",
     dict: "Custom dictionary (comma separated)",
+    connection: "Connection",
+    wsToken: "WS access token (fill when server sets CODEFORGE_TOKEN)",
+    serverUrl: "Build/accelerator server URL (desktop)",
     lookSection: "Appearance",
+  },
+  workspace: {
+    openFolder: "Open folder",
+    currentRoot: "Workspace",
+    rootFallback: "Explorer",
+  },
+  common: { error: "[Error]", hintPrefix: "[Hint] " },
+  build: {
+    downloading: "Downloading {p}%",
+    installBtn: "Install {name}",
+    success: "OK ({ms}ms, exit {code})",
+    failed: "FAILED (exit {code})",
+    okShort: "OK", failedShort: "FAILED",
   },
   statusbar: { files: "◧ Files", panels: "◨ Panels", terminal: "▭ Terminal" },
   accel: {

@@ -12,7 +12,7 @@
       </button>
       <span v-if="detectedLang" class="lang-badge">{{ detectedLang }}</span>
       <button v-if="missingToolchain" class="install" @click="installMissing" :disabled="installProgress >= 0">
-        {{ installProgress >= 0 ? `下载中 ${installProgress}%` : `一键安装 ${missingToolchain}` }}
+        {{ installProgress >= 0 ? t("build.downloading", { p: installProgress }) : t("build.installBtn", { name: missingToolchain }) }}
       </button>
     </div>
     <pre v-if="notice" class="notice">{{ notice }}</pre>
@@ -20,7 +20,7 @@
       <summary>{{ t("build.history", { n: history.length }) }}</summary>
       <ul>
         <li v-for="(h, i) in history" :key="i">
-          <span :class="h.ok ? 'ok' : 'bad'">{{ h.ok ? "成功" : "失败" }}</span>
+          <span :class="h.ok ? 'ok' : 'bad'">{{ h.ok ? t("build.okShort") : t("build.failedShort") }}</span>
           {{ new Date(h.ts).toLocaleTimeString() }} · {{ h.mode }} · {{ h.file.split('/').pop() }} · {{ h.ms }}ms
           <button class="icon" :title="t('build.viewOutput')" @click="viewHistory(h)">查看</button>
           <button class="icon" :title="t('build.rerun')" @click="rerun(h)">重跑</button>
@@ -134,8 +134,8 @@ async function installMissing() {
 on("build.result", (r) => {
   store.buildRunning = false;
   track("build.done", store.activePath, { ok: r.ok });
-  const tail = r.ok ? `成功（${r.durationMs}ms，退出码 ${r.exitCode}）`
-                    : `失败（退出码 ${r.exitCode}）`;
+  const tail = r.ok ? t("build.success", { ms: r.durationMs, code: r.exitCode })
+                    : t("build.failed", { code: r.exitCode });
   append(`\n=== ${tail} ===\n`);
   if (_histFile.value) {
     recordHistory(_histFile.value, _histMode.value,
