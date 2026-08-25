@@ -43,24 +43,51 @@ async function install(id, onProgress = () => {}) {
   }
   onProgress(5);
 
-  // 下载：优先 GitHub 直链（服务器零带宽），否则走服务器分发
+  // 下载（流式写盘+边下边算哈希，内存恒定）：优先 GitHub 直链，否则走服务器分发
   const dlUrl = entry.url || `${serverBase()}/api/toolchains/${id}/download`;
   const dl = await fetch(dlUrl);
   if (!dl.ok) return { ok: false, output: `下载失败 HTTP ${dl.status}（${dlUrl}）` };
-  const buf = Buffer.from(await dl.arrayBuffer());
-  onProgress(60);
 
-  // SHA256 校验
-  const actual = crypto.createHash("sha256").update(buf).digest("hex");
-  if (entry.sha256 && actual !== entry.sha256) {
-    return { ok: false, output: `SHA256 不匹配\n期望 ${entry.sha256}\n实际 ${actual}` };
-  }
-
-  // 解压到 tools/<id>
   const dest = path.join(toolsDir(), id);
   fs.mkdirSync(dest, { recursive: true });
   const tmpArchive = path.join(os.tmpdir(), `cf-${id}-${Date.now()}.tar.gz`);
-  fs.writeFileSync(tmpArchive, buf);
+
+  const { Readable } = require("stream");
+  let sourceFail = null;
+  await new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    let received = 0;
+    const total = entry.size || Number(dl.headers.get("content-length")) || 0;
+    const hasher = new require("stream").Transform({
+      transform(chunk, _e, cb) { hash.update(chunk); this.push(chunk); cb(); },
+    });
+    sourceFail = (e) => reject(Object.assign(e, { streamError: true }));
+    Readable.fromWeb(dl.body)
+      .on("data", (c) => {
+        received += c.length;
+        if (total) onProgress(Math.min(55, Math.round((received / total) * 55)));
+      })
+      .pipe(hasher)
+      .pipe(fs.createWriteStream(tmpArchive))
+      .on("error", sourceFail)
+      .on("finish", resolve);
+  }).then(null, (e) => {
+    try { fs.rmSync(tmpArchive, { force: true }); } catch (_) {}
+    if (e && e.streamError) throw e;
+    return Promise.reject({ ok: false, output: `下载失败: ${e.message}` });
+  });
+  onProgress(60);
+
+  // SHA256 校验（对落盘文件）
+  {
+    const hash = crypto.createHash("sha256");
+    hash.update(fs.readFileSync(tmpArchive));
+    const actual = hash.digest("hex");
+    if (entry.sha256 && actual !== entry.sha256) {
+      fs.rmSync(tmpArchive, { force: true });
+      return { ok: false, output: `SHA256 不匹配\n期望 ${entry.sha256}\n实际 ${actual}` };
+    }
+  }
 
   // 先列出条目做安全校验：拒绝绝对路径与 .. 穿越（TarBomb 防护）
   const listing = await new Promise((resolve) => {

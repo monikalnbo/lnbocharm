@@ -60,9 +60,14 @@ let seq = 0;
 const pending = new Map();     // id -> {resolve, reject, timer}
 const handlers = new Map();    // type -> [fn]
 const queue = [];              // 未连接时的待发帧
+const QUEUE_MAX = 500;         // 防内存膨胀：超出丢弃最旧
 
 function send(obj) {
-  if (socket?.readyState !== WebSocket.OPEN || negotiating) { queue.push(obj); return; }
+  if (socket?.readyState !== WebSocket.OPEN || negotiating) {
+    queue.push(obj);
+    if (queue.length > QUEUE_MAX) queue.shift();   // 丢弃最旧
+    return;
+  }
   if (e2eKey) { seal(e2eKey, obj).then((f) => socket.send(JSON.stringify(f))).catch(() => {}); }
   else _sendRaw(obj);
 }

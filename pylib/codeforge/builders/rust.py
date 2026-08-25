@@ -29,9 +29,18 @@ class RustBuilder(Builder):
         cargo_toml = source.parent / "Cargo.toml"
         if cargo_toml.is_file():
             assert tc.get("cargo"), "Cargo 工程缺少 cargo"
+            # 包名可能 ≠ 文件名：从 Cargo.toml 解析 package.name
+            import re as _re
+            pkg_name = source.stem
+            try:
+                m = _re.search(r'^\s*name\s*=\s*"([^"]+)"', cargo_toml.read_text(encoding="utf-8"), _re.M)
+                if m:
+                    pkg_name = m.group(1).strip()
+            except OSError:
+                pass
             build_cmd = [tc["cargo"], "build", "--release", "--manifest-path",
                          str(cargo_toml)]
-            exe_name = "target/release/" + source.stem
+            exe_name = "target/release/" + pkg_name
             run_cmd = [str(source.parent / exe_name)] + list(run_args or [])
             return BuildPlan(language=self.name, build_cmd=build_cmd,
                              run_cmd=run_cmd, artifacts=[str(source.parent / exe_name)])

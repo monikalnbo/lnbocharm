@@ -16,6 +16,8 @@ function initFile(dir) {
   logDir = dir;
   try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
   cleanupOld();
+  // 长驻服务器跨天运行也要清理：每 6 小时执行一次
+  setInterval(cleanupOld, 6 * 3600_000).unref?.();
 }
 
 /// 保留策略：删除超过 RETENTION_DAYS 的旧日志（任务 #34 磁盘卫生）

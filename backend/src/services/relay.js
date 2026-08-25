@@ -53,7 +53,22 @@ function attachRelay(server) {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });
 
-  wss.on("connection", (ws) => {
+  const ipConns = new Map();           // ip -> 当前连接数
+  const MAX_PER_IP = Number(process.env.CODEFORGE_RELAY_MAX_CONN || 32);
+
+  wss.on("connection", (ws, req) => {
+    const ip = req?.socket?.remoteAddress || "unknown";
+    const cur = ipConns.get(ip) || 0;
+    if (cur >= MAX_PER_IP) {
+      console.error(`[relay] ⛔ ${ip} 连接数超限 (${cur})`);
+      ws.close(4008, "too many connections");
+      return;
+    }
+    ipConns.set(ip, cur + 1);
+    ws.once("close", () => {
+      const n = (ipConns.get(ip) || 1) - 1;
+      if (n <= 0) ipConns.delete(ip); else ipConns.set(ip, n);
+    });
     let target = null;
     let controlDone = false;
     let key = null;                      // E2E 会话密钥（可选）
