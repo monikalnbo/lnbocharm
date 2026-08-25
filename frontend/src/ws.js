@@ -125,43 +125,60 @@ export function wsConnect() {
   socket.onmessage = (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    if (!handshakeDone && msg.type === "hello.ok") {
-      // 阶段一完成：服务器要求 E2E → 发 secure 帧（明文，仅含客户端公钥）
-      if (msg.payload?.e2e?.required) {
-        if (!crypto.subtle) {
-          wsState.fatal = "当前页面非安全上下文，无法建立加密通道";
-          socket.close();
-          return;
-        }
-        genPair().then(async (pair) => {
-          e2ePending = pair;
-          _sendRaw({ v: 1, id: "secure", type: "secure",
-            payload: { pub: pair.pubB64,
-                       token: localStorage.getItem("cf.token") || undefined } });
-          // 阶段二回执是加密帧，由 msg.e===1 分支处理
-        });
+
+    // ---- 加密帧：解密后走统一处理；会话就绪标记在此置位并冲队列 ----
+    if (msg.e === 1) {
+      if (!e2eKey) return;                        // 无密钥的密文帧：丢弃
+      open(e2eKey, msg)
+        .then((m2) => {
+          if (m2.type === "hello.ok" && m2.payload?.e2e?.established) {
+            // 阶段二完成：会话建立，按序冲出排队帧（保持流式帧顺序）
+            handshakeDone = true;
+            negotiating = false;
+            wsState.connected = true;
+            (async () => {
+              while (queue.length) {
+                try { socket.send(JSON.stringify(await seal(e2eKey, queue.shift()))); }
+                catch {}
+              }
+            })();
+            return;
+          }
+          dispatch(m2);
+        })
+        .catch(() => {});
+      return;
+    }
+
+    // ---- 明文帧 ----
+    // 两阶段握手的阶段一回执：服务器要求 E2E 并已下发其公钥
+    if (!handshakeDone && msg.type === "hello.ok" && msg.payload?.e2e?.required) {
+      if (!crypto.subtle) {
+        wsState.fatal = "当前页面非安全上下文，无法建立加密通道";
+        socket.close();
         return;
       }
-      handshakeDone = true; e2ePending = null; negotiating = false;
+      genPair().then(async (pair) => {
+        e2ePending = pair;
+        e2eKey = await deriveKey(pair.pair, msg.payload.e2e.pub);   // 关键：立即派生
+        _sendRaw({ v: 1, id: "secure", type: "secure",
+          payload: { pub: pair.pubB64,
+                     token: localStorage.getItem("cf.token") || undefined } });
+        // 服务器回执加密就绪标记 → 上方加密帧分支完成建连
+      });
+      return;
+    }
+
+    // 非 E2E 服务器的阶段一回执：直接进入明文会话
+    if (!handshakeDone && msg.type === "hello.ok") {
+      handshakeDone = true;
+      e2ePending = null;
+      negotiating = false;
       wsState.connected = true;
       while (queue.length) send(queue.shift());
       return;
     }
 
-    if (msg.e === 1 && !handshakeDone && msg.type === "hello.ok") {
-      // 阶段二完成：解密后的会话就绪标记
-      handshakeDone = true; negotiating = false;
-      wsState.connected = true;
-      while (queue.length) {           // 排队帧全部加密后冲出
-        seal(e2eKey, queue.shift()).then((f) => socket.send(JSON.stringify(f)));
-      }
-      return;
-    }
-    if (msg.e === 1 && e2eKey) {
-      open(e2eKey, msg).then(dispatch).catch(() => {});
-      return;
-    }
-    if (msg.e === 1) return;   // 无密钥却收到密文帧：丢弃
     dispatch(msg);
   };
   socket.onclose = () => {

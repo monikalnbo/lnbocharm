@@ -161,11 +161,14 @@ Renderer(Monaco) ──统一信封(WS/IPC)──► LspManager
 ## 9b. 传输安全（任务 #26/#36）
 
 - **鉴权**：设置 `CODEFORGE_TOKEN` 后，/ws hello 必须携带匹配 token（否则 4003）；/relay 必须 `?token=` 匹配
-- **E2E 加密**：设置 `CODEFORGE_E2E=1` 后强制启用
-  - 握手：hello.payload 带 ECDH P-256 公钥(SPKI base64) → hello.ok 回服务器公钥 → 双方 SHA-256(ECDH) 派生 AES-256-GCM 会话密钥
+- **E2E 加密**：设置 `CODEFORGE_E2E=1` 后强制启用（两阶段握手，协议 v2）
+  - 阶段一：客户端明文 `hello`（不含公钥——兼容非安全上下文）→ 服务器明文回执
+    `hello.ok {e2e:{required:true, pub}}` 下发其 ECDH P-256 公钥(SPKI base64)
+  - 阶段二：客户端派生会话密钥后发送明文 `secure {pub}` 帧 → 服务器派生同一密钥，
+    回执**加密**的 `hello.ok {e2e:{established:true}}` 作为会话就绪标记
   - 帧格式：`{v, e:1, d:base64([12B nonce][ct][16B tag])}` —— **id/type/payload 全部进密文**，防元数据泄露
   - 覆盖范围：/ws 全部信封 + /relay 二进制载荷；中继服务器只见密文
-  - 握手回执(hello.ok)本身明文（客户端尚无密钥），只含公钥不含业务数据
+  - 客户端无 subtle（非安全上下文）时：对非 E2E 服务器正常工作；对强制 E2E 的服务器显示致命错误而非死循环
 - **TLS**：生产部署置于 https/wss 之后；桌面端对非 localhost 明文连接给出提示
 
 ## 10. 版本握手
