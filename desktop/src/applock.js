@@ -56,7 +56,9 @@ function disable() { saveState({ enabled: false, method: "none" }); return { ok:
 
 function state() {
   const st = loadState();
-  return { ...st, caps: capabilities() };
+  // 最小披露：绝不向渲染层泄露 hash/salt
+  return { enabled: !!st.enabled, method: st.method || "none",
+           caps: capabilities() };
 }
 
 // 爆破防护：连续失败 5 次锁定 30 秒（内存态，重启即清）

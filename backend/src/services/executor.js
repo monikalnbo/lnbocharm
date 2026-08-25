@@ -95,11 +95,16 @@ class BuildExecutor {
       this.active.set(buildId, { child, state });
       activeChildRef.current = child;
 
-      const timer = setTimeout(() => {
-        state.cancelled = true;   // 超时也算取消路径，避免误报 compile failed
-        try { child.kill("SIGKILL"); } catch (_) {}
-        finish(makeError("CF2002", { timeout: Math.round(timeoutMs / 1000) }));
-      }, timeoutMs);
+      // 业务规则：编译步限时防卡死；运行步不限时（常驻服务程序合法），
+      // 用户可随时取消。timeoutMs 仅作用于 build。
+      let timer = null;
+      if (step.tag === "build") {
+        timer = setTimeout(() => {
+          state.cancelled = true;   // 超时也算取消路径，避免误报 compile failed
+          try { child.kill("SIGKILL"); } catch (_) {}
+          finish(makeError("CF2002", { timeout: Math.round(timeoutMs / 1000) }));
+        }, timeoutMs);
+      }
 
       child.stdout.on("data", (d) => append(d.toString()));
       child.stderr.on("data", (d) => append(d.toString()));

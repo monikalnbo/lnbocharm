@@ -365,6 +365,12 @@ wss.on("connection", (socket, req) => {
             wsSend(socket, ok(msg.id, "build.result", result));
           }
         }).catch((e) => {
+          // 用户取消排队/运行中的构建：按取消语义返回，不报失败
+          if (e.cfError?.code === "CF2004") {
+            wsSend(socket, ok(msg.id, "build.result",
+              { ok: false, cancelled: true, exitCode: -1, durationMs: 0 }));
+            return;
+          }
           const err = e.cfError || makeError("CF2001", {}, { message: e.message });
           if (err.code === "CF2001" && typeof e.exitCode === "number") {
             wsSend(socket, ok(msg.id, "build.result",
