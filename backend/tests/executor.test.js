@@ -63,3 +63,20 @@ test("输出尾部截断不超过 MAX_TAIL", async () => {
   await ex.execute("b5", plan, { cwd: dir, onOutput: (c) => { tail += c; if (tail.length > 700000) tail = tail.slice(-600000); } });
   assert.ok(tail.length <= 620000);   // 我们自己的聚合上限（服务端 output 字段内部限 512KB）
 });
+
+// ---------- 回归：run 步退出码非零不得报成功 ----------
+
+test("执行器：run 步退出码非零时 ok=false", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cf-exit1-"));
+  const src = path.join(dir, "fail.py");
+  fs.writeFileSync(src, "import sys; sys.exit(3)\n");
+  const plan = {
+    language: "python",
+    build_cmd: ["python3", "-m", "py_compile", src],
+    run_cmd: ["python3", src],
+  };
+  const ex = new BuildExecutor();
+  const r = await ex.execute("b9", plan, { cwd: dir });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.exitCode, 3);
+});

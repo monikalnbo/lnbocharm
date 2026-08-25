@@ -16,6 +16,8 @@ class Workspace {
   setRoot(root) {
     const abs = path.resolve(root);
     if (!fs.existsSync(abs)) throw Object.assign(new Error("目录不存在"), { cf: makeError("CF1001") });
+    if (!fs.statSync(abs).isDirectory())
+      throw Object.assign(new Error("不是目录"), { cf: makeError("CF1002", { message: "工作区必须是目录" }) });
     this.root = abs;
     return { root: abs };
   }

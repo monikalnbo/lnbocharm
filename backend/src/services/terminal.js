@@ -19,7 +19,7 @@ class TerminalService {
     this._nextId = 1;
   }
 
-  create({ cols = 80, rows = 24, shell, onOutput, onExit } = {}) {
+  create({ cols = 80, rows = 24, shell, cwd, onOutput, onExit } = {}) {
     if (this.sessions.size >= MAX_SESSIONS) {
       const e = new Error("终端会话已达上限 " + MAX_SESSIONS);
       e.cfError = { code: "CF6001", message: e.message,
@@ -29,12 +29,14 @@ class TerminalService {
     const id = "t" + this._nextId++;
     const shellBin = shell || process.env.SHELL ||
                      (os.platform() === "win32" ? "powershell.exe" : "bash");
-    let cwd = process.env.CODEFORGE_WS || path.join(process.cwd(), "..", "workspace-demo");
-    try { fs.accessSync(cwd); } catch { cwd = os.homedir(); }   // 目录不存在时回退，避免 PTY 静默失败
+    // cwd 显式传入（跟随工作区切换）；否则回退链
+    let dir = cwd || process.env.CODEFORGE_WS ||
+              path.join(process.cwd(), "..", "workspace-demo");
+    try { fs.accessSync(dir); } catch { dir = os.homedir(); }
     const ptyProc = this.pty.spawn(shellBin, [], {
       name: "xterm-256color",
       cols, rows,
-      cwd,
+      cwd: dir,
       env: { ...process.env, TERM: "xterm-256color" },
     });
 

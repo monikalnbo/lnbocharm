@@ -64,7 +64,8 @@ class BuildExecutor {
       if (next) next.run();
       if (err) reject(err);
       else resolve({
-        ok: !state.cancelled,
+        // 语义修正：run 步退出码非零 = 程序运行失败，不得报成功
+        ok: !state.cancelled && (!ranRun || lastExit === 0),
         exitCode: err ? err.exitCode : lastExit,
         output,
         durationMs: Date.now() - t0,

@@ -66,7 +66,9 @@ function attachRelay(server) {
           // 控制帧本身可能是加密的（{"e":1,"d":...}）——但首帧无共享密钥，
           // 因此控制帧明文携带客户端公钥，服务器回执服务器公钥，此后二进制帧加密
           const c = JSON.parse(plain);
-          if (!c.host || !c.port) throw new Error("bad control");
+          c.port = Number(c.port);
+          if (!c.host || !Number.isInteger(c.port) || c.port < 1 || c.port > 65535)
+            throw new Error("bad port");
           // 目标白名单（任务 #14）：配置 CODEFORGE_RELAY_HOSTS 后仅允许列出的主机
           // 支持 .example.com 后缀通配；未配置 = 允许全部（本地开发）
           if (process.env.CODEFORGE_RELAY_HOSTS) {

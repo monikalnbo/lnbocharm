@@ -385,6 +385,7 @@ wss.on("connection", (socket, req) => {
         try {
           const { id } = terminals.create({
             cols: msg.payload?.cols, rows: msg.payload?.rows,
+            cwd: workspace.getRoot(),
             onOutput: (chunk, sessionId) => wsSend(socket, ok(msg.id, "term.output",
               { sessionId, chunk })),
             onExit: (code, sessionId) => wsSend(socket, ok(msg.id, "term.exit",
