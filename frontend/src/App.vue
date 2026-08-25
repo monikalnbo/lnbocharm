@@ -34,25 +34,25 @@
       <FileTree v-if="store.panels.left" class="dock-left" ref="treeRef" />
 
       <div class="dock-center center-tabs">
-        <WelcomeView v-if="showWelcome" class="center-body"
-          @opened="onWorkspaceOpened"
-          @created="onProjectCreated"
-          @open-recent="switchRecent" />
-        <template v-else>
-          <div class="center-tabbar">
-            <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">
-              {{ t("centerTabs.editor") }}
-            </button>
-            <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">
-              {{ t("centerTabs.browser") }}
-            </button>
-            <button v-if="isDesktop" class="icon" @click="openFolderFlow">
-              {{ t("workspace.openFolder") }}
-            </button>
-          </div>
-          <EditorArea v-show="centerView === 'editor'" class="center-body" />
-          <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
-        </template>
+        <!-- 标签栏常驻：无论是否打开工作区，编辑/浏览器入口始终可见 -->
+        <div class="center-tabbar">
+          <button :class="{ on: centerView === 'welcome' }" @click="centerView = 'welcome'">
+            {{ t("welcome.start") }}
+          </button>
+          <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">
+            {{ t("centerTabs.editor") }}
+          </button>
+          <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">
+            {{ t("centerTabs.browser") }}
+          </button>
+          <span style="flex:1"></span>
+          <button v-if="isDesktop" @click="openFolderFlow">
+            {{ t("workspace.openFolder") }}
+          </button>
+        </div>
+        <WelcomeView v-show="centerView === 'welcome'" class="center-body" />
+        <EditorArea v-show="centerView === 'editor' && !showWelcome" class="center-body" />
+        <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
       </div>
 
       <aside v-if="store.panels.right" class="dock-right">
@@ -131,11 +131,13 @@ function switchRecent(root) {
 function onWorkspaceOpened(root) {
   resetWorkspaceState();
   store.workspaceRoot = root;
+  centerView.value = "editor";
 }
 
 async function onProjectCreated(file) {
-  // file 为新根下的相对路径（WelcomeView 已切根）
+  // 新建项目后打开生成的入门文件并切到编辑视图
   try { await openFile(file); } catch {}
+  centerView.value = "editor";
 }
 
 const bgStyle = computed(() => {
