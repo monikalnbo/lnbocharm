@@ -30,6 +30,9 @@ export const store = reactive({
   panels: {
     left: true, right: true, terminal: true,
   },
+
+  // 工作区（VSCode 式）
+  workspaceRoot: "",
 });
 
 export function setBuildMode(m) {

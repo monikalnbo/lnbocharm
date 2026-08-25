@@ -97,15 +97,17 @@ async function run() {
 }
 
 async function preflight(file) {
-  try {
-    const r = await fetch("/api/plan", {
+  const { api } = await import("../api.js");
+  try { await api.jfetch("/api/plan", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ file }),
     });
-    const j = await r.json();
-    if (!j.ok && j.error?.code === "CF2003") return j.error;
-    return null;
-  } catch { return null; }
+    return null;                                   // HTTP 可用（未开鉴权）
+  } catch (e) {
+    if (e.cf?.code === "CF2003") return e.cf;      // 缺工具链
+    if (e.cf?.code === "CF9001") return null;      // REST 已封锁 → 直接走 WS 构建流程
+    return e.cf || null;
+  }
 }
 
 

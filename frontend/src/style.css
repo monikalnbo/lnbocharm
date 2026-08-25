@@ -100,3 +100,6 @@ button.icon { padding: 1px 7px; }
 .center-tabbar { display: flex; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--border); }
 .center-tabbar button.on { border-color: var(--accent); color: var(--accent); }
 .center-body { flex: 1; min-height: 0; }
+
+.ft-head span:first-child { font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }

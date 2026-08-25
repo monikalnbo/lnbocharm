@@ -106,6 +106,10 @@ const bgStyle = computed(() => {
 });
 
 onMounted(async () => {
+  // 当前工作区根（VSCode 式状态展示）
+  wsRequest("workspace.getRoot").then((r) => {
+    store.workspaceRoot = r.root || "";
+  }).catch(() => {});
   pollMemory();
   setInterval(pollMemory, 5000);
   await loadRegistry();

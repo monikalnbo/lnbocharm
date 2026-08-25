@@ -31,6 +31,21 @@ if (!gotLock) { app.quit(); }
 
 app.setName("CodeForge");
 
+function readRecentsMenu() {
+  try {
+    const list = (readSettings().workspaces || []).slice(0, 6);
+    if (!list.length) return [];
+    return [
+      { label: "最近打开：", enabled: false },
+      ...list.map((p) => ({
+        label: path.basename(p) + "  (" + p + ")",
+        click: () => switchWorkspace(p),
+      })),
+      { type: "separator" },
+    ];
+  } catch { return []; }
+}
+
 /// 极简菜单：Windows/Linux 无菜单栏（功能全部在应用内）；macOS 保留系统必需项
 function buildAppMenu() {
   if (process.platform !== "darwin") {
@@ -96,7 +111,17 @@ function createWindow() {
     return;
   }
   startEmbeddedBackend()
-    .then((port) => win.loadURL(`http://127.0.0.1:${port}`))
+    .then(async (port) => {
+      // 恢复上次工作区（VSCode 行为）
+      const lastRoot = readSettings().lastRoot;
+      if (lastRoot && fs.existsSync(lastRoot)) {
+        await fetch(`http://127.0.0.1:${port}/api/workspace/setRoot`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ root: lastRoot }),
+        }).catch(() => {});
+      }
+      win.loadURL(`http://127.0.0.1:${port}`);
+    })
     .catch((e) => {
       if (win && !win.isDestroyed())
         dialog.showErrorBox("CodeForge", "内置服务启动失败：\n" + e.message);
@@ -127,6 +152,20 @@ function readRelayUrl() {
     const s = JSON.parse(fs.readFileSync(p, "utf8"));
     return s.relayUrl || process.env.CODEFORGE_RELAY;
   } catch { return process.env.CODEFORGE_RELAY; }
+}
+
+function readSettings() {
+  const f = path.join(os.homedir(), ".codeforge", "settings.json");
+  try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return {}; }
+}
+function writeSettings(patch) {
+  const f = path.join(os.homedir(), ".codeforge", "settings.json");
+  let cur = {};
+  try { cur = JSON.parse(fs.readFileSync(f, "utf8")); } catch {}
+  cur = { ...cur, ...patch };
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, JSON.stringify(cur, null, 2));
+  return cur;
 }
 
 function ensureWorkspace() {
@@ -220,6 +259,32 @@ function runStep(cmd, cwd, append) {
 
 // ---------- 其他 IPC ----------
 ipcMain.handle("workspace:path", () => ensureWorkspace());
+
+// ---------- 工作区切换（VSCode 式，任务 #2）----------
+async function switchWorkspace(root) {
+  const port = process.env.PORT || "8787";
+  await fetch(`http://127.0.0.1:${port}/api/workspace/setRoot`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ root }),
+  });
+  const cur = writeSettings({ lastRoot: root });
+  const recents = [...new Set([root, ...(cur.workspaces || [])])].slice(0, 8);
+  writeSettings({ workspaces: recents });
+  if (win && !win.isDestroyed()) win.webContents.send("workspace.changed", root);
+  return { root };
+}
+
+ipcMain.handle("workspace:openDialog", async () => {
+  const r = await dialog.showOpenDialog(win, {
+    properties: ["openDirectory"], title: "打开工作区文件夹",
+    defaultPath: readSettings().lastRoot,
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return switchWorkspace(r.filePaths[0]);
+});
+
+ipcMain.handle("workspace:switchTo", (_e, root) => switchWorkspace(root));
+ipcMain.handle("workspace:recents", () => readSettings().workspaces || []);
 
 ipcMain.handle("settings:setServer", (_e, cfg = {}) => {
   const file = path.join(os.homedir(), ".codeforge", "settings.json");

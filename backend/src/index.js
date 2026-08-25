@@ -30,6 +30,15 @@ const WORKSPACE = process.env.CODEFORGE_WS || path.join(__dirname, "..", "..", "
 
 const app = express();
 app.use(express.json({ limit: "4mb" }));
+// 数据面去HTTP化：设置 token 后封锁明文 REST，仅保留健康检查与工具链公开分发
+app.use("/api", (req, res, next) => {
+  if (!WS_TOKEN) return next();
+  if (req.path === "/health" || req.path.startsWith("/toolchains")) return next();
+  return res.status(401).json({ v: 1, id: "rest", type: "blocked", ok: false,
+    error: { code: "CF9001", severity: "error",
+             message: "明文 REST 已禁用",
+             hint: "请使用加密 WS 通道（ws://…/ws）访问数据接口" } });
+});
 // 全链路访问日志（任务 #32）
 app.use((req, res, next) => {
   const t0 = Date.now();
@@ -110,6 +119,17 @@ app.get("/api/toolchains/:id/download", async (req, res) => {
   fs.createReadStream(abs).pipe(res);
 });
 
+// 工作区切根：仅限本机回环（桌面端主进程调用）
+app.post("/api/workspace/setRoot", (req, res) => {
+  if (!isLocalRequest(req))
+    return res.status(403).json(fail("rest", "workspace.setRoot", "CF1002"));
+  try { res.json(ok("rest", "workspace.setRoot", workspace.setRoot(req.body?.root))); }
+  catch (e) { const err = e.cf || makeError("CF1001"); res.status(400).json(fail("rest", "workspace.setRoot", err.code)); }
+});
+app.get("/api/workspace/root", (_req, res) => {
+  res.json(ok("rest", "workspace.root", { root: workspace.getRoot() }));
+});
+
 // 全局搜索与替换（任务 #27）
 app.post("/api/search", async (req, res) => {
   try {
@@ -180,6 +200,16 @@ server.on("upgrade", (req, socket, head) => {
   if (pathname === "/ws") wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   // /relay 已由 attachRelay 内部处理
 });
+
+/// 异步算子包装：统一 try/catch → fail 信封
+function wrap(socket, msg, fn) {
+  Promise.resolve().then(fn)
+    .then((result) => wsSend(socket, ok(msg.id, msg.type + ".result", result)))
+    .catch((e) => {
+      const err = e.cfError || makeError("CF0001", {}, { message: e.message });
+      wsSend(socket, fail(msg.id, msg.type + ".result", err.code, err.details || {}));
+    });
+}
 
 function wsSendPlain(socket, envelope) {
   socket.send(JSON.stringify(envelope));
@@ -347,6 +377,85 @@ wss.on("connection", (socket, req) => {
 
       case "lsp.notify":
         lsp.notify(msg.payload?.language, msg.payload?.method, msg.payload?.params);
+        break;
+
+      // ===== 数据面业务算子（客户端⇄服务器只走加密WS，不走HTTP）=====
+      case "languages":
+        worker.request(null, "registry").then((r) =>
+          wsSend(socket, ok(msg.id, "languages.result", r))
+        ).catch((e) => wsSend(socket, fail(msg.id, "languages.result", (e.cfError || makeError("CF5003")).code)));
+        break;
+
+      case "file.tree":
+        wrap(socket, msg, () => workspace.tree(msg.payload?.path || "."));
+        break;
+      case "file.read":
+        wrap(socket, msg, () => workspace.read(msg.payload?.path));
+        break;
+      case "file.write":
+        wrap(socket, msg, async () =>
+          workspace.write(msg.payload?.path, msg.payload?.content ?? ""));
+        break;
+      case "file.create":
+        wrap(socket, msg, async () =>
+          workspace.create(msg.payload?.path, !!msg.payload?.dir));
+        break;
+      case "file.rename":
+        wrap(socket, msg, async () =>
+          workspace.rename(msg.payload?.from, msg.payload?.to));
+        break;
+      case "file.delete":
+        wrap(socket, msg, async () => workspace.remove(msg.payload?.path));
+        break;
+
+      case "lint":
+        wrap(socket, msg, () => worker.request(null, "lint", {
+          file: msg.payload?.file, text: msg.payload?.text,
+          lang: msg.payload?.lang, options: msg.payload?.options,
+          enabled: msg.payload?.enabled,
+        }));
+        break;
+
+      case "plan":
+        wrap(socket, msg, () => worker.request(null, "plan", {
+          file: msg.payload?.file,
+          out_dir: "/tmp/cf-build/" + (msg.id || String(Date.now())),
+          run_args: msg.payload?.runArgs,
+        }));
+        break;
+
+      case "search":
+        wrap(socket, msg, async () => search(workspace, msg.payload || {}));
+        break;
+      case "search.replace":
+        wrap(socket, msg, async () => replaceAll(workspace, msg.payload || {}));
+        break;
+
+      case "logs.tail":
+        wrap(socket, msg, async () => logger.tail(msg.payload || {}));
+        break;
+      case "logs.action":
+        logger.log("action", "ui", msg.payload?.event || "unknown",
+          { target: msg.payload?.target, args: msg.payload?.args });
+        wsSend(socket, ok(msg.id, "logs.action.result", {}));
+        break;
+
+      case "toolchain.list":
+        wrap(socket, msg, async () => toolchainStore.list(TOOLCHAIN_DIR));
+        break;
+
+      // 工作区切根：仅本机回环连接允许（远程连接禁止切到服务器任意目录）
+      case "workspace.setRoot":
+        if (!isLocalSocket(socket)) {
+          wsSend(socket, fail(msg.id, "workspace.setRoot.result", "CF1002",
+            { message: "远程连接不允许切换工作区根" }));
+          break;
+        }
+        wrap(socket, msg, async () =>
+          workspace.setRoot(msg.payload?.root));
+        break;
+      case "workspace.getRoot":
+        wrap(socket, msg, async () => ({ root: workspace.getRoot() }));
         break;
 
       default:

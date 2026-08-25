@@ -12,6 +12,15 @@ class Workspace {
     if (!fs.existsSync(this.root)) fs.mkdirSync(this.root, { recursive: true });
   }
 
+  /** 动态切换工作区根（仅本机回环调用方允许触发）*/
+  setRoot(root) {
+    const abs = path.resolve(root);
+    if (!fs.existsSync(abs)) throw Object.assign(new Error("目录不存在"), { cf: makeError("CF1001") });
+    this.root = abs;
+    return { root: abs };
+  }
+  getRoot() { return this.root; }
+
   /** 解析并校验相对路径；非法抛 CF1002 */
   safeResolve(rel) {
     const abs = path.resolve(this.root, rel || ".");

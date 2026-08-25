@@ -36,4 +36,13 @@ contextBridge.exposeInMainWorld("codeforge", {
 
   /// 设置桥接：serverUrl 写入 ~/.codeforge/settings.json 供主进程读取
   setServerConfig: (cfg) => ipcRenderer.invoke("settings:setServer", cfg),
+
+  /// 工作区（VSCode 式，任务 #2）
+  workspace: {
+    openDialog: () => ipcRenderer.invoke("workspace:openDialog"),
+    switchTo: (root) => ipcRenderer.invoke("workspace:switchTo", root),
+    recents: () => ipcRenderer.invoke("workspace:recents"),
+    onChanged: (fn) => ipcRenderer.on("workspace.changed", (_e, root) => fn(root)),
+    getRoot: () => fetch("/api/workspace/root").then((r) => r.json()).then((j) => j.payload?.root),
+  },
 });
