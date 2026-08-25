@@ -16,6 +16,11 @@ extraResources:
     to: shared
   - from: ../backend
     to: backend
+    filter:
+      - "**/*"
+      - "!tests/**"
+      - "!**/*.test.js"
+      - "!**/__pycache__/**"
 
 win:
   target: [{ target: zip, arch: [x64] }]

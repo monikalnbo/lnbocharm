@@ -66,6 +66,7 @@ export function closeTab(path) {
   store.tabs.splice(idx, 1);
   const model = monacoApi.editor.getModel(monacoApi.Uri.parse(fileUri(path)));
   model?.dispose();
+  decorations.delete(path);   // 防止装饰器条目随标签开关无限累积
   if (store.activePath === path) {
     store.activePath = store.tabs[Math.max(0, idx - 1)]?.path || null;
     editor.setModel(store.activePath ? getModelByPath(store.activePath) : null);

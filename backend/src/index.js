@@ -54,7 +54,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 app.get("/api/languages", async (_req, res) => {
   try {
-    const registry = await worker.request("lang-" + Date.now(), "registry", {});
+    const registry = await worker.request(null, "registry", {});
     res.json(ok("rest", "languages.result", registry));
   } catch (e) {
     const err = e.cfError || makeError("CF5003");
@@ -143,7 +143,7 @@ app.post("/api/logs/action", (req, res) => {
 // Lint（经 pyworker）
 app.post("/api/lint", async (req, res) => {
   try {
-    const result = await worker.request("lint-" + Date.now(), "lint", {
+    const result = await worker.request(null, "lint", {
       file: req.body.file, text: req.body.text,
       lang: req.body.lang, options: req.body.options,
       enabled: req.body.enabled,
@@ -158,7 +158,7 @@ app.post("/api/lint", async (req, res) => {
 // 构建计划预览
 app.post("/api/plan", async (req, res) => {
   try {
-    const result = await worker.request("plan-" + Date.now(), "plan", {
+    const result = await worker.request(null, "plan", {
       file: req.body.file, out_dir: req.body.outDir || "/tmp/cf-out",
       run_args: req.body.runArgs, extra_paths: req.body.extraPaths,
     });
@@ -262,7 +262,7 @@ wss.on("connection", (socket, req) => {
         const p = msg.payload || {};
         const outDir = "/tmp/cf-build/" + (msg.id || String(Date.now()));
         logger.log("info", "build", "start", { id: msg.id, file: p.file, mode: "server" });
-        worker.request(msg.id + ":plan", "plan", {
+        worker.request(msg.id, "plan", {
           file: p.file, out_dir: outDir, run_args: p.runArgs,
         }).then((plan) => {
           wsSend(socket, ok(msg.id, "build.plan", plan));

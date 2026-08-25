@@ -8,6 +8,8 @@ const PYLIB_DIR = path.join(__dirname, "..", "..", "..", "pylib");   // services
 const RESTART_WINDOW_MS = 60_000;
 const MAX_RESTARTS_PER_WINDOW = 3;
 
+let REQ_SEQ = 0;
+
 class PyWorker {
   constructor({ python = "python3" } = {}) {
     this.pythonBin = python;
@@ -71,8 +73,9 @@ class PyWorker {
     }
   }
 
-  /** op: detect/lint/plan/registry/ping */
-  request(id, op, args = {}, timeoutMs = 30_000) {
+  /** op: detect/lint/plan/registry/ping —— id 由内部唯一生成，杜绝调用方碰撞 */
+  request(_ignoredId, op, args = {}, timeoutMs = 30_000) {
+    const id = "r" + ++REQ_SEQ;
     if (!this.proc || this.proc.exitCode !== null) {
       // 已死且未自动重启成功：尝试拉起
       try { this._spawn(); } catch (_) { /* fallthrough */ }
