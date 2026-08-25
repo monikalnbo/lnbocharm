@@ -7,6 +7,9 @@ const path = require("path");
 const { spawn } = require("child_process");
 const WebSocket = require("ws");
 
+// 已知限制：两个子测试通过后事件循环偶发被残留句柄吊住（约87秒后自然退出），
+// 以 8 秒看门狗兜底强制退出。根因疑似 undici/fetch keep-alive 对已杀服务的
+// CLOSE_WAIT 残留，待后续以 httpProbe 全量替换后移除本兜底。
 const SERVER_JS = path.join(__dirname, "..", "src", "index.js");
 
 // 看门狗：所有子测试通过后若事件循环被残留句柄吊住，30 秒强制按成功退出

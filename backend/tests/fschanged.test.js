@@ -8,11 +8,29 @@ const { spawn } = require("child_process");
 const WebSocket = require("ws");
 
 const SERVER_JS = path.join(__dirname, "..", "src", "index.js");
+require("./orphan-guard.js");
+const { track } = require("./orphan-guard");
 const PORT = 8949;
+
+/// 无 keep-alive 的健康检查/状态请求（防 CLOSE_WAIT 悬挂测试进程）
+const http = require("http");
+function httpProbe(port, p, method = "GET") {
+  return new Promise((resolve) => {
+    const req = http.request({ host: "127.0.0.1", port, path: p, method, agent: false },
+      (res) => {
+        let body = "";
+        res.on("data", (d) => (body += d));
+        res.on("end", () => resolve({ status: res.statusCode, body }));
+      });
+    req.on("error", () => resolve(null));
+    if (method !== "GET") req.write("{}");
+    req.end();
+  });
+}
 
 async function waitHealth() {
   for (let i = 0; i < 50; i++) {
-    try { const r = await fetch(`http://127.0.0.1:${PORT}/api/health`); if (r.ok) return; } catch {}
+    try { const r = await httpProbe(PORT, "/api/health"); if (r && r.status === 200) return; } catch {}
     await new Promise((r) => setTimeout(r, 150));
   }
   throw new Error("server not healthy");
@@ -24,6 +42,7 @@ test("外部写入触发 fs.changed 广播", async () => {
     env: { ...process.env, PORT: String(PORT), CODEFORGE_WS: wsRoot },
     stdio: ["ignore", "ignore", "ignore"],
   });
+  track(child);
   await waitHealth();
 
   const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);

@@ -4,6 +4,23 @@ const net = require("net");
 const { spawn } = require("child_process");
 const path = require("path");
 const WebSocket = require("ws");
+require("./orphan-guard.js");
+/// 无 keep-alive 的健康检查/状态请求（防 CLOSE_WAIT 悬挂测试进程）
+const http = require("http");
+function httpProbe(port, p, method = "GET") {
+  return new Promise((resolve) => {
+    const req = http.request({ host: "127.0.0.1", port, path: p, method, agent: false },
+      (res) => {
+        let body = "";
+        res.on("data", (d) => (body += d));
+        res.on("end", () => resolve({ status: res.statusCode, body }));
+      });
+    req.on("error", () => resolve(null));
+    if (method !== "GET") req.write("{}");
+    req.end();
+  });
+}
+
 
 /// 端到端：/relay 隧道 → 本机 echo 服务器（模拟任意 TCP 目标）
 test("relay 中继往返", async () => {
@@ -25,7 +42,10 @@ test("relay 中继往返", async () => {
     env: { ...process.env, PORT: String(PORT) },
     stdio: ["ignore", "ignore", "ignore"],
   });
-  await new Promise((r) => setTimeout(r, 1500));
+  for (let i = 0; i < 60; i++) {
+    try { const r = await httpProbe(PORT, "/api/health"); if (r && r.status === 200) break; } catch {}
+    await new Promise((r) => setTimeout(r, 150));
+  }
 
   try {
     // 3. 连接 /relay：控制帧 + 二进制载荷

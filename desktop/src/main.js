@@ -290,7 +290,14 @@ ipcMain.handle("settings:setServer", (_e, cfg = {}) => {
   const file = path.join(os.homedir(), ".codeforge", "settings.json");
   let cur = {};
   try { cur = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
-  if (cfg.serverUrl) cur.serverUrl = cfg.serverUrl;
+  if (cfg.serverUrl) {
+    cur.serverUrl = cfg.serverUrl;
+    // 联动派生加速器隧道地址：http://host:port → ws://host:port/relay
+    try {
+      const u = new URL(cfg.serverUrl);
+      cur.relayUrl = `${u.protocol === "https:" ? "wss" : "ws"}://${u.host}/relay`;
+    } catch {}
+  }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(cur, null, 2));
   return { ok: true };

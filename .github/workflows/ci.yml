@@ -17,7 +17,10 @@ jobs:
           python-version: "3.11"
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"      # --test-force-exit 需 ≥22
+      - name: eslint no-undef 门禁（任务 #7）
+        run: |
+          npx --yes eslint@8 --no-eslintrc             --env node,browser,es2022             --parser-options=ecmaVersion:2022,sourceType:module             --rule '{"no-undef":"error"}'             "backend/src/**/*.js" "desktop/src/*.js" "frontend/src/*.js"
       - name: pylib pytest（45+）
         run: |
           pip install pytest
@@ -52,6 +55,11 @@ jobs:
       - name: 安装后端生产依赖（随包分发）
         run: npm ci --omit=dev --no-fund --no-audit || npm install --omit=dev --no-fund --no-audit
         working-directory: backend
+      - name: 桌面端测试（任务 #6）
+        working-directory: desktop
+        run: |
+          npm ci --no-fund --no-audit || npm install --no-fund --no-audit
+          node --test test/proxy.test.js
       - name: 打包桌面端
         working-directory: desktop
         env:

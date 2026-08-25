@@ -2,7 +2,7 @@
 /// - macOS：Touch ID（systemPreferences.promptTouchID）
 /// - Windows/Linux：主密码回退（SHA-256+盐 存储，绝不存明文）
 /// - 空闲自动上锁（可配，默认 10 分钟）；凭据区操作可要求二次验证
-const { systemPreferences, safeStorage } = require("electron");
+const { systemPreferences } = require("electron");
 const crypto = require("crypto");
 const os = require("os");
 const path = require("path");
@@ -59,19 +59,35 @@ function state() {
   return { ...st, caps: capabilities() };
 }
 
+// 爆破防护：连续失败 5 次锁定 30 秒（内存态，重启即清）
+const MAX_FAILS = 5, LOCKOUT_MS = 30_000;
+let failCount = 0, lockoutUntil = 0;
+
 /// 解锁验证：Touch ID 走系统弹窗；密码走哈希比对
 async function unlock({ password } = {}) {
   const st = loadState();
   if (!st.enabled) return { ok: true };
+  if (Date.now() < lockoutUntil) {
+    const wait = Math.ceil((lockoutUntil - Date.now()) / 1000);
+    return { ok: false, hint: `尝试次数过多，请 ${wait} 秒后再试` };
+  }
   if (st.method === "touchid") {
     try {
       await systemPreferences.promptTouchID("解锁 CodeForge");
+      failCount = 0;
       return { ok: true };
     } catch (e) {
+      failCount++;
+      if (failCount >= MAX_FAILS) lockoutUntil = Date.now() + LOCKOUT_MS;
       return { ok: false, hint: "指纹验证失败或被取消：" + e.message };
     }
   }
-  if (password && hashPassword(password, st.salt) === st.hash) return { ok: true };
+  if (password && hashPassword(password, st.salt) === st.hash) {
+    failCount = 0;
+    return { ok: true };
+  }
+  failCount++;
+  if (failCount >= MAX_FAILS) lockoutUntil = Date.now() + LOCKOUT_MS;
   return { ok: false, hint: "密码不正确" };
 }
 

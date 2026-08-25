@@ -21,10 +21,15 @@ class PyWorker {
   }
 
   _spawn() {
+    if (this._spawning || (this.proc && this.proc.exitCode === null)) return;
+    this._spawning = true;
     this.proc = spawn(this.pythonBin, ["-m", "codeforge", "serve"], {
       cwd: PYLIB_DIR,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    const done = () => { this._spawning = false; };
+    this.proc.once("exit", done);
+    this.proc.once("error", done);
     this.proc.stdout.setEncoding("utf8");
     this.proc.stdout.on("data", (chunk) => this._onData(chunk));
     this.proc.stderr.setEncoding("utf8");
@@ -82,9 +87,16 @@ class PyWorker {
   /** op: detect/lint/plan/registry/ping —— id 由内部唯一生成，杜绝调用方碰撞 */
   request(_ignoredId, op, args = {}, timeoutMs = 30_000) {
     const id = "r" + ++REQ_SEQ;
+    // 死进程重启同样受 60s/3次 限流约束（此前任意请求可无条件绕过）
     if (!this.proc || this.proc.exitCode !== null) {
-      // 已死且未自动重启成功：尝试拉起
-      try { this._spawn(); } catch (_) { /* fallthrough */ }
+      const now = Date.now();
+      this.restartTimes = this.restartTimes.filter((t) => now - t < RESTART_WINDOW_MS);
+      if (this.restartTimes.length >= MAX_RESTARTS_PER_WINDOW) {
+        const err = makeError("CF5003", { reason: "worker 重启已达限流上限" });
+        return Promise.reject(Object.assign(new Error(err.message), { cfError: err }));
+      }
+      this.restartTimes.push(now);
+      try { this._spawn(); } catch (_) {}
     }
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {

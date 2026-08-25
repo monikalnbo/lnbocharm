@@ -6,6 +6,8 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
 const WebSocket = require("ws");
+require("./orphan-guard.js");
+const { track } = require("./orphan-guard");
 
 /// 端到端：manifest + 下载 + SHA256 校验（真实 HTTP）
 test("工具链清单与下载", async () => {
@@ -27,7 +29,8 @@ test("工具链清单与下载", async () => {
   const child = spawn(process.execPath,
     [path.join(__dirname, "..", "src", "index.js")],
     { env: { ...process.env, PORT: String(PORT), CODEFORGE_TOOLCHAINS: dir },
-      stdio: ["ignore", "inherit", "inherit"] });   // stderr 直通，便于定位崩溃
+      stdio: ["ignore", "inherit", "inherit"] });
+  track(child);   // stderr 直通，便于定位崩溃
   for (let i = 0; i < 60; i++) {
     try { const r = await fetch(`http://127.0.0.1:${PORT}/api/health`); if (r.ok) break; } catch {}
     await new Promise((r) => setTimeout(r, 150));
@@ -35,6 +38,8 @@ test("工具链清单与下载", async () => {
 
   try {
     // 3. 清单接口
+    const { search: _s } = { search: null };
+    void _s;
     const listResp = await fetch(`http://127.0.0.1:${PORT}/api/toolchains`);
     const list = (await listResp.json()).payload;
     assert.strictEqual(list.length, 2);

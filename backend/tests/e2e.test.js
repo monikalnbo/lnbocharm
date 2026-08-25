@@ -8,12 +8,15 @@ const WebSocket = require("ws");
 const e2e = require("../src/services/crypto-channel");
 
 const SERVER_JS = path.join(__dirname, "..", "src", "index.js");
+require("./orphan-guard.js");
+const { track } = require("./orphan-guard");
 
 function startServer(port, env = {}) {
   const child = spawn(process.execPath, [SERVER_JS], {
     env: { ...process.env, PORT: String(port), ...env },
     stdio: ["ignore", "ignore", "ignore"],
   });
+  track(child);
   return { child, url: `ws://127.0.0.1:${port}` };
 }
 
