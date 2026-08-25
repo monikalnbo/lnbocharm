@@ -3,9 +3,10 @@
     <div class="ft-head">
       <span :title="store.workspaceRoot">{{ rootName || t("filetree.title") }}</span>
       <button v-if="isDesktop" class="icon" :title="t('workspace.openFolder')" @click="openFolder">{{ t("workspace.openFolder") }}</button>
-      <button class="icon" :title="t('filetree.newFile')" @click="onCreate">＋</button>
+      <button class="icon" :title="t('filetree.newFile')" @click="wizard && wizard.show()">＋</button>
       <button class="icon" :title="t('filetree.refresh')" @click="refresh">⟳</button>
     </div>
+    <NewFileWizard ref="wizard" @created="onCreated" />
     <ul class="ft-list">
       <li v-for="node in flat" :key="node.path"
           :class="{ dir: node.dir, active: node.path === store.activePath }"
@@ -26,6 +27,7 @@ import { api, track } from "../api.js";
 import { store } from "../store.js";
 import { openFile } from "../editor.js";
 import { on as wsOn } from "../ws.js";
+import NewFileWizard from "./NewFileWizard.vue";
 
 const { t } = useI18n();
 const raw = ref([]);
@@ -85,14 +87,13 @@ function iconOf(name) {
   return id ? id.slice(0, 2).toUpperCase() : "•";
 }
 
-async function onCreate() {
-  track("file.create_click");
-  const p = prompt(t("filetree.newFilePrompt"));
-  if (!p) return;
-  try {
-    await api.create(p, false).catch((e) => alert(e.cf?.hint || e.message));
-    refresh();
-  } catch {}
+const wizardOpen = ref(false);
+const wizard = ref(null);
+
+async function onCreated(name) {
+  track("file.created", name);
+  await refresh();
+  await openFile(name);          // 创建后直接打开
 }
 
 async function onDelete(node) {

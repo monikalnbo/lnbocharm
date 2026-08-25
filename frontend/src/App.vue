@@ -1,46 +1,60 @@
 <template>
-  <div class="app" :data-theme="store.theme"
-       :style="bgStyle">
+  <div class="app" :data-theme="store.theme" :style="bgStyle">
     <!-- 顶栏 -->
     <header class="topbar">
-      <span class="logo">CodeForge</span>
+      <span class="logo"><b>Code</b>Forge</span>
       <span class="conn" :class="{ on: wsState.connected }">
-        {{ wsState.connected ? "● " + t("topbar.connected") : "○ " + t("topbar.connecting") }}
+        {{ wsState.connected ? t("topbar.connected") : t("topbar.connecting") }}
       </span>
-      <label>背景
-        <select @change="e => setBackground(e.target.value)"
-                :value="store.background">
-          <option value="">默认</option>
-          <option value="#0d1117">深蓝黑</option>
-          <option value="#1a1b26">夜空</option>
-          <option value="#f5f5f5">浅色</option>
+      <label>{{ t("topbar.background") }}
+        <select @change="e => setBackground(e.target.value)" :value="store.background">
+          <option value="">—</option>
+          <option value="#0d1117">Dark Blue</option>
+          <option value="#1a1b26">Night</option>
+          <option value="#f5f5f5">Light</option>
         </select>
       </label>
       <label>{{ t("topbar.theme") }}
-        <select @change="e => { setTheme(e.target.value); }" :value="store.theme">
+        <select @change="e => setTheme(e.target.value)" :value="store.theme">
           <option value="dark">{{ t("topbar.dark") }}</option>
           <option value="light">{{ t("topbar.light") }}</option>
         </select>
       </label>
-      <select @change="e => setLocale(e.target.value)"
-              :value="$i18n.locale">
+      <select @change="e => setLocale(e.target.value)" :value="$i18n.locale">
         <option value="zh-CN">中文</option>
         <option value="en">English</option>
       </select>
-      <button class="icon" :title="t('settings.title')" @click="settingsOpen = true">{{ t("settings.title") }}</button>
+      <button class="icon" :title="t('settings.title')" @click="settingsOpen = true">
+        {{ t("settings.title") }}
+      </button>
     </header>
 
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
     <div class="mid">
       <FileTree v-if="store.panels.left" class="dock-left" ref="treeRef" />
+
       <div class="dock-center center-tabs">
-        <div class="center-tabbar">
-          <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">{{ t("centerTabs.editor") }}</button>
-          <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">{{ t("centerTabs.browser") }}</button>
-        </div>
-        <EditorArea v-show="centerView === 'editor'" class="center-body" />
-        <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
+        <WelcomeView v-if="showWelcome" class="center-body"
+          @opened="onWorkspaceOpened"
+          @created="onProjectCreated"
+          @open-recent="switchRecent" />
+        <template v-else>
+          <div class="center-tabbar">
+            <button :class="{ on: centerView === 'editor' }" @click="centerView = 'editor'">
+              {{ t("centerTabs.editor") }}
+            </button>
+            <button :class="{ on: centerView === 'browser' }" @click="centerView = 'browser'">
+              {{ t("centerTabs.browser") }}
+            </button>
+            <button v-if="isDesktop" class="icon" @click="openFolderFlow">
+              {{ t("workspace.openFolder") }}
+            </button>
+          </div>
+          <EditorArea v-show="centerView === 'editor'" class="center-body" />
+          <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
+        </template>
       </div>
+
       <aside v-if="store.panels.right" class="dock-right">
         <SearchPanel @jump="(m) => revealLine(m.path, m.line)" />
         <BuildPanel />
@@ -54,11 +68,15 @@
 
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <LockScreen />
+    <FirstRunGuide />
 
     <!-- 状态栏 -->
     <footer class="statusbar">
       <span v-if="memMB">内存 {{ memMB }} MB</span>
-      <span :style="wsState.fatal ? 'color:#f85149' : ''">
+      <span v-if="store.workspaceRoot" :title="store.workspaceRoot">
+        {{ store.workspaceRoot.split(/[\\/]/).pop() }}
+      </span>
+      <span :style="wsState.fatal ? 'color:#eb5757' : ''">
         {{ wsState.fatal || store.notice }}
       </span>
       <button @click="togglePanel('left')">{{ t("statusbar.files") }}</button>
@@ -70,12 +88,12 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { store, setBackground, setTheme, togglePanel } from "./store.js";
-import { wsState, wsConnect } from "./ws.js";
-import { loadRegistry, initLspDiagnostics } from "./monaco.js";
 import { useI18n } from "vue-i18n";
+import { store, setBackground, setTheme, togglePanel } from "./store.js";
+import { wsState, wsConnect, wsRequest } from "./ws.js";
+import { loadRegistry, initLspDiagnostics } from "./monaco.js";
+import { revealLine, resetWorkspaceState, openFile } from "./editor.js";
 import { setLocale } from "./i18n/index.js";
-import { revealLine, resetWorkspaceState } from "./editor.js";
 import FileTree from "./components/FileTree.vue";
 import EditorArea from "./components/EditorArea.vue";
 import BuildPanel from "./components/BuildPanel.vue";
@@ -86,33 +104,65 @@ import LockScreen from "./components/LockScreen.vue";
 import BrowserPanel from "./components/BrowserPanel.vue";
 import LogPanel from "./components/LogPanel.vue";
 import SearchPanel from "./components/SearchPanel.vue";
+import WelcomeView from "./components/WelcomeView.vue";
+import FirstRunGuide from "./components/FirstRunGuide.vue";
 
-const treeRef = ref(null);
+const { t } = useI18n();
 const settingsOpen = ref(false);
+const welcomeClosed = ref(false);
+// 无打开标签且未关闭欢迎页时显示（打开任意文件自动隐藏）
+const showWelcome = computed(() =>
+  store.tabs.length === 0 && !welcomeClosed.value && !store.workspaceRoot.endsWith("workspace-demo"));
 const memMB = ref(0);
+const centerView = ref("editor");
+const isDesktop = !!window.codeforge;
+
+/// 打开文件夹流程（桌面端）：对话框 → 主进程切根 → workspace.changed 推送
+/// 会触发 resetWorkspaceState（见 onChanged 订阅）
+async function openFolderFlow() {
+  if (!isDesktop) return;
+  await window.codeforge.workspace.openDialog();
+}
+
+function switchRecent(root) {
+  if (isDesktop) window.codeforge.workspace.switchTo(root);
+}
+
+function onWorkspaceOpened(root) {
+  resetWorkspaceState();
+  store.workspaceRoot = root;
+}
+
+async function onProjectCreated(file) {
+  // file 为新根下的相对路径（WelcomeView 已切根）
+  try { await openFile(file); } catch {}
+}
+
+const bgStyle = computed(() => {
+  const c = store.customColors || {};
+  const style = {};
+  if (c.bg) style["--bg"] = c.bg;
+  if (c.panel) style["--panel"] = c.panel;
+  if (c.accent) style["--accent"] = c.accent;
+  const bg = store.background;
+  if (bg) {
+    const veil = `rgba(8,9,10,${1 - (store.backgroundOpacity ?? 0.3)})`;
+    style["background"] =
+      `linear-gradient(${veil}, ${veil}), ${bg.startsWith("#") ? bg : "url(" + bg + ") center/cover no-repeat"}`;
+  }
+  return style;
+});
 
 async function pollMemory() {
   if (window.codeforge?.appMemory) {
     try { memMB.value = (await window.codeforge.appMemory()).rssMB; } catch {}
   }
 }
-const { t } = useI18n();
-const centerView = ref("editor");
-
-const bgStyle = computed(() => {
-  const bg = store.background;
-  if (!bg) return {};
-  return {
-    background: `linear-gradient(rgba(10,12,18,${1 - store.backgroundOpacity * 0.7}), rgba(10,12,18,${1 - store.backgroundOpacity * 0.7})), ${bg.startsWith("#") ? bg : "url(" + bg + ") center/cover"}`,
-  };
-});
 
 onMounted(async () => {
-  // 当前工作区根（VSCode 式状态展示）
   wsRequest("workspace.getRoot").then((r) => {
     store.workspaceRoot = r.root || "";
   }).catch(() => {});
-  // 桌面端：主进程推送切换 → 清理旧会话再更新
   window.codeforge?.workspace?.onChanged?.((root) => {
     resetWorkspaceState();
     store.workspaceRoot = root;

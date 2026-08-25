@@ -276,10 +276,26 @@ ipcMain.handle("workspace:path", () => ensureWorkspace());
 // ---------- 工作区切换（VSCode 式，任务 #2）----------
 async function switchWorkspace(root) {
   const port = process.env.PORT || "8787";
-  await fetch(`http://127.0.0.1:${port}/api/workspace/setRoot`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ root }),
-  });
+  // 健壮性：检查响应状态与信封，失败时抛出带 hint 的错误（不再静默）
+  let resp, body;
+  try {
+    resp = await fetch(`http://127.0.0.1:${port}/api/workspace/setRoot`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ root }),
+    });
+    body = await resp.json();
+  } catch (e) {
+    throw Object.assign(new Error(`无法连接内置服务 (${e.message})`), {
+      hint: "内置服务可能仍在启动中，请稍候重试",
+    });
+  }
+  if (!resp.ok || !body.ok) {
+    const err = body.error || {};
+    throw Object.assign(new Error(err.message || `HTTP ${resp.status}`), {
+      hint: err.hint || "",
+    });
+  }
+
   const cur = writeSettings({ lastRoot: root });
   const recents = [...new Set([root, ...(cur.workspaces || [])])].slice(0, 8);
   writeSettings({ workspaces: recents });
