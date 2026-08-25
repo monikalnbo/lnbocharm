@@ -23,7 +23,8 @@ import { ref, computed, onMounted } from "vue";
 import { api } from "../api.js";
 import { store } from "../store.js";
 import { openFile } from "../editor.js";
-import { track } from "../api.js";
+import { track, api as _unusedApi } from "../api.js";
+import { on as wsOn } from "../ws.js";
 import { useI18n } from "vue-i18n";
 
 const raw = ref([]);

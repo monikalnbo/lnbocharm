@@ -50,7 +50,7 @@ class WsClient {
       this.ws.send(JSON.stringify({ v: 1, id, type, payload }));
     });
   }
-  close() { this.ws.close(); }
+  close() { this.ws.terminate(); }   // 服务器可能已死，terminate 避免半开悬挂
 }
 
 test("数据面 WS 往返：写文件→Lint→读回→搜索，全程无 HTTP 数据请求", async () => {

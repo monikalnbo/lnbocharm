@@ -132,7 +132,11 @@ app.get("/api/toolchains/:id/download", async (req, res) => {
 app.post("/api/workspace/setRoot", (req, res) => {
   if (!isLocalRequest(req))
     return res.status(403).json(fail("rest", "workspace.setRoot", "CF1002"));
-  try { res.json(ok("rest", "workspace.setRoot", workspace.setRoot(req.body?.root))); }
+  try {
+    const r = workspace.setRoot(req.body?.root);
+    watchWorkspace();
+    res.json(ok("rest", "workspace.setRoot", r));
+  }
   catch (e) { const err = e.cf || makeError("CF1001"); res.status(400).json(fail("rest", "workspace.setRoot", err.code)); }
 });
 app.get("/api/workspace/root", (_req, res) => {
@@ -218,6 +222,36 @@ function wrap(socket, msg, fn) {
       const err = e.cfError || makeError("CF0001", {}, { message: e.message });
       wsSend(socket, fail(msg.id, msg.type + ".result", err.code, err.details || {}));
     });
+}
+
+// ---- 文件变更监听（任务 #4）：递归 watch + 防抖广播 fs.changed ----
+let workspaceWatcher = null;
+let watchDebounce = null;
+
+function watchWorkspace() {
+  try { workspaceWatcher?.close(); } catch (_) {}
+  workspaceWatcher = null;
+  try {
+    workspaceWatcher = fs.watch(workspace.getRoot(), { recursive: true }, () => {
+      clearTimeout(watchDebounce);
+      watchDebounce = setTimeout(() => {
+        const frame = JSON.stringify(
+          ok("fs", "fs.changed", { root: workspace.getRoot() }));
+        for (const c of wss.clients) {
+          // 已加密会话：fs.changed 也走密文
+          if (c.readyState === c.OPEN) {
+            try {
+              c._key ? c.send(JSON.stringify(e2e.sealEnvelope(c._key,
+                ok("fs", "fs.changed", { root: workspace.getRoot() }))))
+                     : c.send(frame);
+            } catch (_) {}
+          }
+        }
+      }, 400);
+    });
+  } catch (e) {
+    console.error("[watch] 当前平台不支持递归监听:", e.message);
+  }
 }
 
 function wsSendPlain(socket, envelope) {
@@ -460,8 +494,11 @@ wss.on("connection", (socket, req) => {
             { message: "远程连接不允许切换工作区根" }));
           break;
         }
-        wrap(socket, msg, async () =>
-          workspace.setRoot(msg.payload?.root));
+        wrap(socket, msg, async () => {
+          const r = workspace.setRoot(msg.payload?.root);
+          watchWorkspace();
+          return r;
+        });
         break;
       case "workspace.getRoot":
         wrap(socket, msg, async () => ({ root: workspace.getRoot() }));
@@ -473,6 +510,8 @@ wss.on("connection", (socket, req) => {
     }
   });
 });
+
+watchWorkspace();
 
 server.listen(PORT, () => {
   console.log(`[codeforge-server] http://localhost:${PORT}  ws://localhost:${PORT}/ws`);
