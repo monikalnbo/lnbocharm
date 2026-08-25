@@ -57,6 +57,7 @@ async function search(workspace, opts) {
   const matches = [];
   let total = 0;
   for await (const rel of walk(workspace.root)) {
+    if (total >= MAX_RESULTS) break;   // 达上限立即停止扫描（大仓库性能）
     const text = await fsp.readFile(path.join(workspace.root, rel), "utf8").catch(() => null);
     if (text == null) continue;
     const lines = [];

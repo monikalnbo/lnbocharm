@@ -25,7 +25,7 @@ function loadAllowlist() {
 }
 
 function attachRelay(server) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 * 1024 });
   const E2E_REQUIRED = process.env.CODEFORGE_E2E === "1";
 
   server.on("upgrade", (req, socket, head) => {

@@ -221,7 +221,8 @@ app.post("/api/plan", async (req, res) => {
 // ---------- WS ----------
 // 双路径：/ws 统一信封协议；/relay 加速器 TCP 隧道
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true,
+  maxPayload: 64 * 1024 * 1024 });   // 单帧上限 64MB，防内存炸弹
 attachRelay(server);
 
 server.on("upgrade", (req, socket, head) => {
@@ -264,6 +265,14 @@ function watchWorkspace() {
           }
         }
       }, 400);
+    });
+    // 关键：inotify 耗尽(ENOSPC)/目录被删会触发 error 事件，
+    // 无监听器 = 整个服务器进程崩溃。记录并延迟重建。
+    workspaceWatcher.on("error", (e) => {
+      console.error("[watch] 错误，2 秒后重建:", e.message);
+      try { workspaceWatcher?.close(); } catch (_) {}
+      workspaceWatcher = null;
+      setTimeout(() => { try { watchWorkspace(); } catch (_) {} }, 2000);
     });
   } catch (e) {
     console.error("[watch] 当前平台不支持递归监听:", e.message);
