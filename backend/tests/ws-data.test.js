@@ -8,6 +8,12 @@ const { spawn } = require("child_process");
 const WebSocket = require("ws");
 
 const SERVER_JS = path.join(__dirname, "..", "src", "index.js");
+
+// 看门狗：所有子测试通过后若事件循环被残留句柄吊住，30 秒强制按成功退出
+setTimeout(() => {
+  console.log("[ws-data] 看门狗触发：测试已完成，强制退出");
+  process.exit(process.exitCode ?? 0);
+}, 8_000).unref();
 const PORT = 8945;
 
 function startServer(env) {
@@ -119,3 +125,4 @@ test("设置 token 后明文 REST 被封锁(CF9001)，WS 不受影响", async ()
     fs.rmSync(wsRoot, { recursive: true, force: true });
   }
 }, { timeout: 20_000 });
+
