@@ -134,6 +134,10 @@ async function installMissing() {
 on("build.result", (r) => {
   store.buildRunning = false;
   track("build.done", store.activePath, { ok: r.ok });
+  if (r.cancelled) {
+    append(`\n=== 已取消 ===\n`);
+    return;
+  }
   const tail = r.ok ? t("build.success", { ms: r.durationMs, code: r.exitCode })
                     : t("build.failed", { code: r.exitCode });
   append(`\n=== ${tail} ===\n`);
@@ -152,6 +156,12 @@ function append(s) {
 
 async function __runBody() {
   if (!store.activePath) return;
+  // 业务修复A：运行前自动保存所有未保存修改
+  try {
+    const { saveDirtyModels } = await import("../editor.js");
+    const n = await saveDirtyModels();
+    if (n) append(`[save] 已自动保存 ${n} 个未保存文件\n`);
+  } catch {}
   if (store.buildMode === "local") {
     // 本机构建走 Electron IPC；纯网页环境给出明确提示
     if (!isElectron || !window.codeforge?.localBuild) {

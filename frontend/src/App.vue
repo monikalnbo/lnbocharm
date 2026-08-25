@@ -75,7 +75,7 @@ import { wsState, wsConnect } from "./ws.js";
 import { loadRegistry, initLspDiagnostics } from "./monaco.js";
 import { useI18n } from "vue-i18n";
 import { setLocale } from "./i18n/index.js";
-import { revealLine } from "./editor.js";
+import { revealLine, resetWorkspaceState } from "./editor.js";
 import FileTree from "./components/FileTree.vue";
 import EditorArea from "./components/EditorArea.vue";
 import BuildPanel from "./components/BuildPanel.vue";
@@ -112,6 +112,11 @@ onMounted(async () => {
   wsRequest("workspace.getRoot").then((r) => {
     store.workspaceRoot = r.root || "";
   }).catch(() => {});
+  // 桌面端：主进程推送切换 → 清理旧会话再更新
+  window.codeforge?.workspace?.onChanged?.((root) => {
+    resetWorkspaceState();
+    store.workspaceRoot = root;
+  });
   pollMemory();
   setInterval(pollMemory, 5000);
   await loadRegistry();

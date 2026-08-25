@@ -47,6 +47,7 @@ export async function openFile(path) {
   track("file.open", path);
   await ensureLsp(languageOf(path) || "");
   const model = await openModel(path);
+  markSaved(path);                       // 打开即与磁盘一致
   if (!store.tabs.find((t) => t.path === path)) store.tabs.push({ path, language: model.getLanguageId(), model });
   store.activePath = path;
   editor.setModel(model);
@@ -68,6 +69,7 @@ export function closeTab(path) {
   const model = monacoApi.editor.getModel(monacoApi.Uri.parse(fileUri(path)));
   model?.dispose();
   decorations.delete(path);   // 防止装饰器条目随标签开关无限累积
+  savedVersions.delete(path);
   if (store.activePath === path) {
     store.activePath = store.tabs[Math.max(0, idx - 1)]?.path || null;
     editor.setModel(store.activePath ? getModelByPath(store.activePath) : null);
@@ -81,6 +83,42 @@ function getModelByPath(path) {
 
 export function getModelByPathSafe(path) {
   try { return getModelByPath(path); } catch { return null; }
+}
+
+// ---------- 未保存状态跟踪（运行前自动保存） ----------
+const savedVersions = new Map();   // path -> 与磁盘一致的 versionId
+function markSaved(path) {
+  const m = getModelByPath(path);
+  if (m) savedVersions.set(path, m.getVersionId());
+}
+
+/// 保存所有打开且有改动的文件，返回保存数（BuildPanel 运行前调用）
+export async function saveDirtyModels() {
+  let n = 0;
+  for (const t of store.tabs) {
+    const m = getModelByPath(t.path);
+    if (!m) continue;
+    if (m.getVersionId() !== (savedVersions.get(t.path) ?? -1)) {
+      await api.write(t.path, m.getValue());
+      savedVersions.set(t.path, m.getVersionId());
+      n++;
+    }
+  }
+  return n;
+}
+
+/// 切换工作区：清理全部标签页模型/装饰器/未保存标记与断点
+export function resetWorkspaceState() {
+  for (const t of [...store.tabs]) {
+    getModelByPath(t.path)?.dispose();
+    decorations.delete(t.path);
+    savedVersions.delete(t.path);
+  }
+  store.tabs.length = 0;
+  store.activePath = null;
+  store.breakpoints = {};
+  try { localStorage.setItem("cf.breakpoints", "{}"); } catch {}
+  try { editor?.setModel(null); } catch {}
 }
 
 // ---------- 断点渲染 ----------

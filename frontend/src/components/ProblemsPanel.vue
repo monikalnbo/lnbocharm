@@ -21,21 +21,21 @@ import { store } from "../store.js";
 import { revealLine } from "../editor.js";
 import { useI18n } from "vue-i18n";
 
-const markers = ref([]);
 const { t } = useI18n();
+const markers = ref([]);
 let timer = null;
 
 function collect() {
   const out = [];
-  for (const t of store.tabs) {
-    const model = monaco.editor.getModel(monaco.Uri.parse(fileUri(t.path)));
+  for (const tab of store.tabs) {
+    const model = monaco.editor.getModel(monaco.Uri.parse(fileUri(tab.path)));
     if (!model) continue;
-    for (const m of monaco.editor.getModelMarkers({ resource: model.uri })) {
+    for (const mk of monaco.editor.getModelMarkers({ resource: model.uri })) {
       out.push({
-        ...m,
-        sev: m.severity === monaco.MarkerSeverity.Error ? "错误"
-           : m.severity === monaco.MarkerSeverity.Warning ? "警告" : "提示",
-        path: t.path,
+        ...mk,
+        sev: mk.severity === monaco.MarkerSeverity.Error ? "错误"
+           : mk.severity === monaco.MarkerSeverity.Warning ? "警告" : "提示",
+        path: tab.path,
       });
     }
   }
