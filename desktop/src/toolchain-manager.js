@@ -39,13 +39,14 @@ async function install(id, onProgress = () => {}) {
   const listJ = await listResp.json();
   const entry = (listJ.payload || []).find((t) => t.id === id);
   if (!entry) {
-    return { ok: false, output: `服务器清单中不存在 ${id}` };
+    return { ok: false, output: `清单中不存在 ${id}（来源：${serverBase()}）` };
   }
   onProgress(5);
 
-  // 下载
-  const dl = await fetch(`${serverBase()}/api/toolchains/${id}/download`);
-  if (!dl.ok) return { ok: false, output: `下载失败 HTTP ${dl.status}` };
+  // 下载：优先 GitHub 直链（服务器零带宽），否则走服务器分发
+  const dlUrl = entry.url || `${serverBase()}/api/toolchains/${id}/download`;
+  const dl = await fetch(dlUrl);
+  if (!dl.ok) return { ok: false, output: `下载失败 HTTP ${dl.status}（${dlUrl}）` };
   const buf = Buffer.from(await dl.arrayBuffer());
   onProgress(60);
 

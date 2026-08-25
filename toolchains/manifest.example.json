@@ -1,0 +1,11 @@
+[
+  {
+    "id": "gcc-13.2-win-x64",
+    "language": "c/cpp",
+    "version": "13.2.0",
+    "platform": "win32",
+    "size": 0,
+    "sha256": "<下载后计算>",
+    "url": "https://github.com/monikalnbo/lnbocharm/releases/download/toolchains-v1/gcc-13.2-win-x64.tar.gz"
+  }
+]

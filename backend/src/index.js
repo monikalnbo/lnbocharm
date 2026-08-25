@@ -119,9 +119,14 @@ const TOOLCHAIN_DIR = process.env.CODEFORGE_TOOLCHAINS || path.join(__dirname, "
 app.get("/api/toolchains", (_req, res) => {
   res.json(ok("rest", "toolchains.list", toolchainStore.list(TOOLCHAIN_DIR)));
 });
+// url 型条目（GitHub Release 等外链）：302 重定向，服务器零带宽
+// 本地型条目：流式输出。任务 #38/#41
 app.get("/api/toolchains/:id/download", async (req, res) => {
   const entry = toolchainStore.findById(TOOLCHAIN_DIR, req.params.id);
-  const abs = entry && toolchainStore.filePathOf(TOOLCHAIN_DIR, entry);
+  if (!entry) return res.status(404).json(fail("rest", "toolchains.download", "CF2003",
+    { toolchain: req.params.id }));
+  if (entry.url) return res.redirect(302, entry.url);
+  const abs = toolchainStore.filePathOf(TOOLCHAIN_DIR, entry);
   if (!abs) return res.status(404).json(fail("rest", "toolchains.download", "CF2003",
     { toolchain: req.params.id }));
   res.setHeader("Content-Type", "application/octet-stream");
