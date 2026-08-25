@@ -11,7 +11,6 @@ const { startAccelerator, getStatus } = require("./proxy");
 const applock = require("./applock");
 const toolchains = require("./toolchain-manager");
 
-const DIST_INDEX = path.join(__dirname, "..", "..", "frontend", "dist", "index.html");
 function pylibDir() {
   // 打包后 app.asar 是虚拟文件系统，子进程无法读取——必须用解压后的 resources 路径
   return app.isPackaged

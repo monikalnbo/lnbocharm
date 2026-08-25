@@ -9,11 +9,13 @@ files:
 extraResources:
   # 前端产物与 pylib 引擎随包分发
   - from: ../frontend/dist
-    to: frontend-dist
+    to: frontend/dist          # 与 backend/src/index.js 的 ../../frontend/dist 解析对齐
   - from: ../pylib
     to: pylib
   - from: ../shared
     to: shared
+  - from: ../toolchains
+    to: toolchains
   - from: ../backend
     to: backend
     filter:
