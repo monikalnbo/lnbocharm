@@ -36,7 +36,7 @@ test("外部写入触发 fs.changed 广播", async () => {
 
   // 外部直接写文件（不经 API）
   const changed = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("fs.changed 未在 3 秒内到达")), 3000);
+    const timer = setTimeout(() => reject(new Error("fs.changed 未在 8 秒内到达")), 3000);
     ws.on("message", (d) => {
       const m = JSON.parse(d.toString());
       if (m.type === "fs.changed" && m.payload?.root === wsRoot) {
