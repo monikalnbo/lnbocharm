@@ -40,6 +40,28 @@ export function mountEditor(container) {
     }, 800));
   });
 
+  // ---- 快捷键命令注册（层1：仅编辑器聚焦时生效）----
+  // Ctrl/Cmd+S 保存
+  editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS, () => {
+    saveActiveFile();
+  });
+  // F9 切换光标行断点
+  editor.addCommand(monacoApi.KeyCode.F9, () => {
+    const pos = editor.getPosition();
+    const path = store.activePath;
+    if (!path || !pos) return;
+    toggleBreakpoint(path, pos.lineNumber);
+    renderBreakpoints();
+  });
+  // F5 运行（派发给 BuildPanel）
+  editor.addCommand(monacoApi.KeyCode.F5, () => {
+    window.dispatchEvent(new CustomEvent("cf-run"));
+  });
+  // Ctrl+Enter 同样触发运行
+  editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.Enter, () => {
+    window.dispatchEvent(new CustomEvent("cf-run"));
+  });
+
   return editor;
 }
 
@@ -83,6 +105,17 @@ function getModelByPath(path) {
 
 export function getModelByPathSafe(path) {
   try { return getModelByPath(path); } catch { return null; }
+}
+
+/// 保存当前活动文件（Ctrl+S / 菜单调用）
+export async function saveActiveFile() {
+  const path = store.activePath;
+  const model = getModelByPath(path);
+  if (!model || !path) return 0;
+  await api.write(path, model.getValue());
+  markSaved(path);
+  runLint(path);
+  return 1;
 }
 
 // ---------- 未保存状态跟踪（运行前自动保存） ----------

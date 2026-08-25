@@ -25,6 +25,7 @@ export default {
   editor: { empty: "打开左侧文件开始编码" },
   build: {
     title: "构建",
+    runHint: "运行（F5 或 Ctrl+Enter）",
     run: "运行",
     modes: { server: "服务器构建", local: "本机构建（桌面端）", docker: "Docker 构建" },
     localNeedsDesktop: "本机构建需要在桌面应用中运行；当前为浏览器模式，已切换为服务器构建。",

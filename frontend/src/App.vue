@@ -163,9 +163,24 @@ onMounted(async () => {
   wsRequest("workspace.getRoot").then((r) => {
     store.workspaceRoot = r.root || "";
   }).catch(() => {});
+  // 菜单加速器 Ctrl+, → 打开设置
+  window.codeforge?.onUiSettings?.(() => { settingsOpen.value = true; });
   window.codeforge?.workspace?.onChanged?.((root) => {
     resetWorkspaceState();
     store.workspaceRoot = root;
+  });
+  // 层2 窗口级按键映射（任务：按键-系统-运行三层对齐）
+  window.addEventListener("keydown", (e) => {
+    // 终端内的按键属于 PTY 输入，不劫持
+    const el = e.target;
+    if (el && (el.closest?.(".xterm") || el.classList?.contains("xterm-helper-textarea"))) return;
+    if (e.key === "F5") {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent("cf-run"));
+    }
+    if (e.key === "Escape" && settingsOpen.value) {
+      settingsOpen.value = false;
+    }
   });
   pollMemory();
   setInterval(pollMemory, 5000);

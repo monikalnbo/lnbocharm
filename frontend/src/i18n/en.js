@@ -25,6 +25,7 @@ export default {
   editor: { empty: "Open a file from the explorer to start coding" },
   build: {
     title: "Build",
+    runHint: "Run (F5 or Ctrl+Enter)",
     run: "Run",
     modes: { server: "Server build", local: "Local build (desktop)", docker: "Docker build" },
     localNeedsDesktop: "Local build requires the desktop app; switched to server build in web mode.",

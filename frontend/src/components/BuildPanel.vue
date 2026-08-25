@@ -8,8 +8,9 @@
         <option value="docker">{{ t("build.modes.docker") }}</option>
       </select>
       <span class="mode-desc">{{ t(`build.modeDesc.${store.buildMode}`) }}</span>
-      <button :disabled="store.buildRunning || !store.activePath" @click="run">
-        {{ t("build.run") }}
+      <button :disabled="store.buildRunning || !store.activePath" @click="run"
+              :title="t('build.runHint')">
+        ▶ {{ t("build.run") }}
       </button>
       <span v-if="detectedLang" class="lang-badge">{{ detectedLang }}</span>
       <button v-if="missingToolchain && isDesktop" class="install" @click="installMissing" :disabled="installProgress >= 0">
@@ -71,6 +72,11 @@ const detectedLang = computed(() => {
   return store.registry[store.extMap[p.slice(dot).toLowerCase()]]?.name || "";
 });
 const installProgress = ref(-1);
+
+// 快捷键 F5 / Ctrl+Enter 触发运行（编辑器命令与窗口层都会派发）
+window.addEventListener("cf-run", () => {
+  if (!store.buildRunning && store.activePath) run();
+});
 
 on("build.output", ({ chunk }) => {
   append(chunk);
