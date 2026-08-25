@@ -63,8 +63,8 @@ label { font-size: 12px; color: var(--dim); }
   grid-template-columns: auto minmax(420px, 1fr) auto;
   overflow: hidden;
 }
-.dock-left { width: 230px; }
-.dock-right { width: 350px; display: flex; flex-direction: column; gap: 8px; }
+.dock-left { /* 宽度由 store 控制 */ }
+.dock-right { display: flex; flex-direction: column; gap: 8px; }
 .dock-center { min-width: 420px; }
 
 .panel {
@@ -136,3 +136,17 @@ label { font-size: 12px; color: var(--dim); }
   --border:rgba(0,0,0,.09); --border-strong:rgba(0,0,0,.16);
   --text:#1f2328; --text2:#424a53; --dim:#656d76; --dimmer:#8b949e;
 }
+
+/* ---- 可拖拽分隔条 ---- */
+.grip { flex: none; background: transparent; transition: background .15s; position: relative; z-index: 5; }
+.grip-v { width: 5px; cursor: col-resize; margin: 0 2px; border-radius: 3px; }
+.grip-h { height: 5px; cursor: row-resize; margin: 2px 0; border-radius: 3px; }
+.grip:hover, .grip.active { background: var(--accent); opacity: .6; }
+
+/* 拖拽进行中：全局禁选 + 精准光标 */
+body.dragging { user-select: none !important; -webkit-user-select: none !important; cursor: col-resize; }
+body.dragging * { pointer-events: none; }
+body.dragging .grip { pointer-events: auto; }
+
+/* 面板尺寸改为内联控制，移除类内固定宽度的冲突 */
+.dock-left, .dock-right { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }

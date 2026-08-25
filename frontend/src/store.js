@@ -37,6 +37,9 @@ export const store = reactive({
 
   // 工作区（VSCode 式）
   workspaceRoot: "",
+
+  // 面板尺寸（可拖拽调整，持久化）
+  panelSizes: safeParse("cf.sizes", { left: 230, right: 350, terminal: 230 }),
 });
 
 export function setBuildMode(m) {

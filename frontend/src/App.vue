@@ -30,8 +30,11 @@
     </header>
 
     <!-- 中部三栏 dock：面板挤压代码区，绝不浮层遮挡 -->
-    <div class="mid">
-      <FileTree v-if="store.panels.left" class="dock-left" ref="treeRef" />
+    <div class="mid" :class="{ dragging }">
+      <FileTree v-if="store.panels.left" class="dock-left"
+                :style="{ width: sizes.left + 'px', flex: 'none' }" ref="treeRef" />
+      <div v-if="store.panels.left" class="grip grip-v" title="拖动调整宽度 · 双击重置"
+           @pointerdown="(e) => startDrag('left', e)" @dblclick="sizes.left = 230"></div>
 
       <div class="dock-center center-tabs">
         <!-- 标签栏常驻：无论是否打开工作区，编辑/浏览器入口始终可见 -->
@@ -55,16 +58,24 @@
         <BrowserPanel v-show="centerView === 'browser'" class="center-body" />
       </div>
 
-      <aside v-if="store.panels.right" class="dock-right">
-        <SearchPanel @jump="(m) => revealLine(m.path, m.line)" />
-        <BuildPanel />
-        <ProblemsPanel />
-        <LogPanel />
-      </aside>
+      <template v-if="store.panels.right">
+        <div class="grip grip-v" title="拖动调整宽度 · 双击重置"
+             @pointerdown="(e) => startDrag('right', e)" @dblclick="sizes.right = 350"></div>
+        <aside class="dock-right" :style="{ width: sizes.right + 'px', flex: 'none' }">
+          <SearchPanel @jump="(m) => revealLine(m.path, m.line)" />
+          <BuildPanel />
+          <ProblemsPanel />
+          <LogPanel />
+        </aside>
+      </template>
     </div>
 
     <!-- 底部终端（可折叠） -->
-    <TerminalView v-if="store.panels.terminal" class="bottom" />
+    <template v-if="store.panels.terminal">
+      <div class="grip grip-h" title="拖动调整高度"
+           @pointerdown="(e) => startDrag('terminal', e)"></div>
+      <TerminalView class="bottom" :style="{ height: sizes.terminal + 'px' }" />
+    </template>
 
     <SettingsPanel :open="settingsOpen" @close="settingsOpen = false" />
     <LockScreen />
@@ -116,6 +127,34 @@ const showWelcome = computed(() =>
 const memMB = ref(0);
 const centerView = ref("editor");
 const isDesktop = !!window.codeforge;
+
+// ---- 面板尺寸拖拽（任务：模块可调整大小）----
+const sizes = reactive({ ...{ left: 230, right: 350, terminal: 230 }, ...store.panelSizes });
+const dragging = ref(false);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function startDrag(which, ev) {
+  ev.preventDefault();
+  const startX = ev.clientX, startY = ev.clientY;
+  const startV = sizes[which];
+  dragging.value = true;
+  const move = (e) => {
+    if (which === "left")
+      sizes.left = clamp(startV + (e.clientX - startX), 170, Math.min(600, window.innerWidth * 0.45));
+    else if (which === "right")
+      sizes.right = clamp(startV - (e.clientX - startX), 240, Math.min(640, window.innerWidth * 0.5));
+    else
+      sizes.terminal = clamp(startV - (e.clientY - startY), 100, Math.min(700, window.innerHeight * 0.65));
+  };
+  const up = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    dragging.value = false;
+    try { localStorage.setItem("cf.sizes", JSON.stringify(sizes)); } catch {}
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
 
 /// 打开文件夹流程（桌面端）：对话框 → 主进程切根 → workspace.changed 推送
 /// 会触发 resetWorkspaceState（见 onChanged 订阅）
